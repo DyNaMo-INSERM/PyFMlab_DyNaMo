@@ -45,10 +45,6 @@ def parseJPKheader(filepath, header_properties, shared_data_properties, filesuff
         prefix = "quantitative-imaging-map"
         file_metadata['force_volume'] = 1
         pre_header = ".settings"
-    elif file_metadata["file_type"] == "jpk-qi-series":
-        prefix = "quantitative-imaging-series"
-        file_metadata['force_volume'] = 0
-        pre_header = ".header"
     elif file_metadata["file_type"] == "jpk-force":
         prefix = "force-scan-series"
         pre_header = ".header"
@@ -109,6 +105,8 @@ def parseJPKheader(filepath, header_properties, shared_data_properties, filesuff
 
         if channel_name in ("vDeflection", "hDeflection"):
             properties["encoder_type"] = shared_data_properties.get(pre + ".encoder.type")
+            if properties["encoder_type"] is None: # Use higher-level data type descriptor and assume no decoding needs to be done
+                properties["encoder_type"] = shared_data_properties.get(pre + ".type")
             properties["encoder_offet_key"] = float(shared_data_properties.get(pre + ".encoder.scaling.offset", offset_default))
             properties["encoder_multiplier_key"] = float(shared_data_properties.get(pre + ".encoder.scaling.multiplier", multiplier_default))
 
@@ -148,6 +146,8 @@ def parseJPKheader(filepath, header_properties, shared_data_properties, filesuff
         
         elif channel_name in ("capacitiveSensorHeight", "measuredHeight", "height", "cellhesion-height", "strainGaugeHeight"):
             properties["encoder_type"] = shared_data_properties.get(pre + ".encoder.type")
+            if properties["encoder_type"] is None: # Use higher-level data type descriptor and assume no decoding needs to be done
+                properties["encoder_type"] = shared_data_properties.get(pre + ".type")
             properties["encoder_offet_key"] = float(shared_data_properties.get(pre + ".encoder.scaling.offset", offset_default))
             properties["encoder_multiplier_key"] = float(shared_data_properties.get(pre + ".encoder.scaling.multiplier", scaling_factor))
             
@@ -222,7 +222,7 @@ def parseJPKsegmentheader(curve_properties, curve_index, file_type, segment_head
         segment_metadata["baseline_measured"] = False
     segment_metadata["baseline"] = float(segment_header.get("force-segment-header.baseline.baseline", offset_default))
 
-    if file_type in ("jpk-force", "jpk-qi-series"):
+    if file_type == "jpk-force":
         segment_metadata["approach_id"] = segment_header.get("force-segment-header.approach-id")
         segment_metadata["style"] = segment_header.get("force-segment-header.settings.style")
 

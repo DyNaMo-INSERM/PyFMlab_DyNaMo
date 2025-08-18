@@ -3,14 +3,15 @@ import numpy as np
 from ..utils.force_curves import get_poc_RoV_method, get_poc_regulaFalsi_method, correct_tilt, correct_offset
 from ..models.hertz import HertzModel
 
-def doHertzFit(fdc, param_dict):
+def doHertzFit(fdc, param_dict, prepare_data = True):
     # Get segment data
     if param_dict['curve_seg'] == 'extend':
         segment_data = fdc.extend_segments[-1][1]
-    else:
+    elif param_dict['curve_seg'] == 'retract':
         segment_data = fdc.retract_segments[-1][1]
         segment_data.zheight = segment_data.zheight[::-1]
         segment_data.vdeflection = segment_data.vdeflection[::-1]
+
     # Perform tilt correction
     if param_dict['offset_type'] == 'percentage':
         deltaz = segment_data.zheight.max() - segment_data.zheight.min()
@@ -20,24 +21,28 @@ def doHertzFit(fdc, param_dict):
         maxoffset = param_dict['max_offset']
         minoffset = param_dict['min_offset']
 
-    if param_dict['correct_tilt']:
+    if param_dict['correct_baseline'] == 'tilt':
         segment_data.vdeflection =\
             correct_tilt(
                 segment_data.zheight, segment_data.vdeflection, maxoffset, minoffset
             )
-    else:
+    elif param_dict['correct_baseline'] == 'offset':
         segment_data.vdeflection =\
             correct_offset(
                 segment_data.zheight, segment_data.vdeflection, maxoffset, minoffset
             )
+        
     # Get initial estimate of PoC
     if param_dict['poc_method'] == 'RoV':
         comp_PoC = get_poc_RoV_method(
             segment_data.zheight, segment_data.vdeflection, param_dict['poc_win'])
-    else:
+        poc = [comp_PoC[0], 0]
+    elif param_dict['poc_method'] == 'regulaFalsi':
         comp_PoC = get_poc_regulaFalsi_method(
             segment_data.zheight, segment_data.vdeflection, param_dict['sigma'])
-    poc = [comp_PoC[0], 0]
+        poc = [comp_PoC[0], 0]
+    elif param_dict['poc_method'] == False:
+        poc = [0, 0]
     
     # Downsample signal
     if param_dict['downsample_flag']:
@@ -45,9 +50,10 @@ def doHertzFit(fdc, param_dict):
         idxDown = list(range(0, len(segment_data.zheight), downfactor))
         segment_data.zheight = segment_data.zheight[idxDown]
         segment_data.vdeflection = segment_data.vdeflection[idxDown]
+    
     # Prepare data for the fit
-
-    segment_data.get_force_vs_indentation(poc, param_dict['k'])
+    if prepare_data:
+        segment_data.get_force_vs_indentation(poc, param_dict['k'])
     indentation = segment_data.indentation
     force = segment_data.force
 

@@ -88,11 +88,11 @@ class Segment:
                 Returns: None
         """
         deflection_v = self.segment_formated_data["vDeflection"]
-        if self.segment_metadata is not None and\
+        if y0 is not None: # This condition needs to be first to allow user to overwrite metadata based processing
+            deflection_v = deflection_v - y0
+        elif self.segment_metadata is not None and\
             self.segment_metadata["baseline_measured"]:
             deflection_v = deflection_v - self.segment_metadata["baseline"]
-        elif y0 is not None:
-            deflection_v = deflection_v - y0
         self.vdeflection = deflection_v * deflection_sens
         self.zheight = self.segment_formated_data[height_channel_key]
         if "time" in self.segment_formated_data:
@@ -125,3 +125,23 @@ class Segment:
         # Force = Kc(N/m) * deflection(m)
         self.indentation = np.array(self.zheight - self.vdeflection - center_force_x)
         self.force = np.array(self.vdeflection * spring_constant - center_force_y)
+
+    def get_force_vs_indentation_precal(self, spring_constant):
+        """
+        Computes force vs indentation curve from deflection and piezo_height and populates
+        the indentation and force properties. Does not perform correction of the z height by the cantilever position, 
+        as it assumes this has already been done elsewhere. Assumes piezo_height and deflection are centered around the poc.
+
+        Indentation = piezo_height(m)
+        Force = Kc(N/m) * deflection(m)
+
+                Parameters:
+                        spring_constant (float): in N/m
+                
+                Returns: None
+        """
+
+        # Indentation = piezo_height(m)
+        # Force = Kc(N/m) * deflection(m)
+        self.indentation = np.array(self.zheight)
+        self.force = np.array(self.vdeflection * spring_constant)

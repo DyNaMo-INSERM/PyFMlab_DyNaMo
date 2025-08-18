@@ -106,3 +106,21 @@ class ForceCurve:
         """
         for _, segment in self.get_segments():
             segment.get_force_vs_indentation(poc, spring_constant)
+
+    def get_force_vs_indentation_precal(self, spring_constant):
+        """
+        Computes force vs indentation curve from deflection and piezo_height and populates
+        the indentation and force properties. Does not perform correction of the z height by the cantilever position, 
+        as it assumes this has already been done elsewhere. Assumes piezo_height and deflection are centered around the poc.
+
+        Indentation = piezo_height(m)
+        Force = Kc(N/m) * deflection(m)
+
+                Parameters:
+                        spring_constant (float): in N/m
+                
+                Returns: None
+        """
+
+        for _, segment in self.get_segments():
+            segment.get_force_vs_indentation_precal(spring_constant)
