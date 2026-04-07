@@ -1,11 +1,11 @@
 
 import os
-from scipy.signal import decimate
+# from scipy.signal import decimate
 
 
 #from ..constants import *
 
-from nptdms import TdmsFile
+# from nptdms import TdmsFile
 
 def parseHS3header(filepath):
     """
@@ -35,31 +35,28 @@ def parseHS3header(filepath):
         lines = [l.strip() for l in f if l.strip()]
     
     # prepare holders
-        file_metadata = {
-            "file_path": filepath,
-            "file_id": os.path.basename(filepath),
-            'Entry_filename': os.path.basename(filepath)[:-4],  # remove .tdms
-            "params_file": os.path.basename(params_file),
-            "params_folder": directory,
-            "file_size_bytes": os.path.getsize(filepath),
-            'Entry_tot_nb_curve': 1,
-            'num_segments': 3,
-            'curve_id': 0,  
-        }
+    S1S2 = []; S3 = []; S4S5 = []
+    file_metadata = {
+        "file_path": filepath,
+        "params_file":    os.path.basename(params_file),
+        "params_folder":  directory,
+        "file_size_bytes": os.path.getsize(filepath),
+        "Entry_filename": os.path.split(filepath)[-1]
+    }
+    file_metadata["height_channel_key"] = "Piezo"
+    file_metadata["deflection_channel_key"] = "Deflection"   
 
     # defaults
     for line in lines:
         if line.startswith("Sensitivity"):
-            file_metadata["sensitivity_nm_per_V"] = float(line.split()[-1])
+            file_metadata["defl_sens_nmbyV"] = float(line.split()[-1])
 
         elif line.startswith("invOLS"):
             file_metadata["invOLS_nm_per_V"] = float(line.split()[-1])
-            file_metadata["defl_sens_nmbyV"] = float(line.split()[-1])
-
+        
         elif line.startswith("K"):
-            file_metadata["spring_constant_N_per_m"] = float(line.split()[-1])
             file_metadata["spring_const_Nbym"] = float(line.split()[-1])
-
+        
         elif line.startswith("f1"):
             file_metadata["chirp_start_Hz"] = float(line.split()[-1])
         
@@ -79,21 +76,19 @@ def parseHS3header(filepath):
             file_metadata["dec_factor_retract"] = float(line.split()[-1])
         
         elif line.startswith("S1\t") or line.startswith("S1 "):
-            file_metadata["S1_ms"]=float(line.split()[-1])
-
+            S1S2.append(float(line.split()[-1]))
         
         elif line.startswith("S2\t") or line.startswith("S2 "):
-            file_metadata["S2_ms"]=float(line.split()[-1])
+            S1S2.append(float(line.split()[-1]))
         
         elif line.startswith("S3\t") or line.startswith("S3 "):
-            file_metadata["S3_ms"]=float(line.split()[-1])
-
+            S3.append(float(line.split()[-1]))
         
         elif line.startswith("S4\t") or line.startswith("S4 "):
-            file_metadata["S4_ms"]=float(line.split()[-1])
+            S4S5.append(float(line.split()[-1]))
         
         elif line.startswith("S5\t") or line.startswith("S5 "):
-            file_metadata["S5_ms"]=float(line.split()[-1])
+            S4S5.append(float(line.split()[-1]))
         
         elif "WFM Type" in line:
             file_metadata["force_curve_type"] = int(line.split()[-1])
@@ -116,17 +111,13 @@ def parseHS3header(filepath):
         elif line.startswith("Reading Sample Rate"):
             file_metadata["reading_sample_rate_Hz"] = float(line.split()[-1])
 
-        
-        elif line.startswith("V1\t") or line.startswith("V1 "):
-            file_metadata["V1"]=float(line.split()[-1])
-        
-        elif line.startswith("V3\t") or line.startswith("V3 "):
-            file_metadata["V3"]=float(line.split()[-1])
-        
-        elif line.startswith("V5\t") or line.startswith("V5 "):
-            file_metadata["V5"]=float(line.split()[-1])
-        
-
+    # assemble S1,S2,S3,S4,S5 if present
+    if len(S1S2) == 2:
+        file_metadata["S1_ms"], file_metadata["S2_ms"] = S1S2
+    if len(S3) == 1:
+        file_metadata["S3_ms"] = S3[0]
+    if len(S4S5) == 2:
+        file_metadata["S4_ms"], file_metadata["S5_ms"] = S4S5
 
     
     return file_metadata
