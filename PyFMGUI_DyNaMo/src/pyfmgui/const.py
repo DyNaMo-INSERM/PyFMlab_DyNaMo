@@ -372,9 +372,13 @@ microrheo_params = [general_params, correction_params, AnalysisParams(mode='micr
 
 # tether_params = [general_params, AnalysisParams(mode='tether', name='Analysis Params'), TetherAnalysisParams(name='Tether Params')]  
 
+# Thermaltune added parameters 
+
+
+
 # SADER API params ################################################
 SADER_API_version = 'Python API/0.20'
 SADER_API_type = 'text/xml'
 SADER_API_url = 'https://sadermethod.org/api/1.1/api.php'
-DEFAULT_SADER_USERNAME = 'e.villz'
-DEFAULT_SADER_PASSWORD = 'g2Uf#RFH'
+DEFAULT_SADER_USERNAME = 'dynamo'
+DEFAULT_SADER_PASSWORD = 'x$=Jsj*h'
