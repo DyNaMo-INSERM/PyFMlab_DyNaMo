@@ -318,7 +318,8 @@ class CantileverParams(pTypes.GroupParameter):
   
 general_params = {'name': 'General Options', 'type': 'group', 'children': [
         {'name': 'Compute All Curves', 'type': 'bool', 'value': False},
-        {'name': 'Compute All Files', 'type': 'bool', 'value': False}
+        {'name': 'Compute All Files', 'type': 'bool', 'value': False},
+        {'name': 'Correct App', 'type': 'bool', 'value': False}
     ]}
 
 

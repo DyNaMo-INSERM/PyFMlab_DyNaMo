@@ -45,9 +45,14 @@ class HertzFitWidget(QtWidgets.QWidget):
         self.paramTree = ParameterTree()
         self.paramTree.setParameters(self.params, showTop=False)
 
-        # Added: Connect Correct App parameter to update
-        self.correct_app = self.params.child('General Options').child('Correct App')
-        self.correct_app.sigValueChanged.connect(self.update)
+        # Added: Connect Correct App parameter to update if it exists
+        try:
+            self.correct_app = self.params.child('General Options').child('Correct App')
+            self.correct_app.sigValueChanged.connect(self.update)
+        except KeyError:
+            # Correct App parameter may not exist in older configurations
+            logger.debug('Correct App parameter not found in configuration')
+            self.correct_app = None
 
         self.l2 = pg.GraphicsLayoutWidget()
 
@@ -98,8 +103,11 @@ class HertzFitWidget(QtWidgets.QWidget):
             filedict = {
                 self.session.current_file.filemetadata['Entry_filename']: self.session.current_file}
         # Log if Correct App option is enabled
-        if self.params.child('General Options').child('Correct App').value():
-            logger.info('Correct App overshoot correction is enabled')
+        try:
+            if self.params.child('General Options').child('Correct App').value():
+                logger.info('Correct App overshoot correction is enabled')
+        except KeyError:
+            pass  # Parameter may not exist
         params = get_params(self.params, "HertzFit")
         logger.info('Started ElasticityFit...')
         logger.info(f'Processing {len(filedict)} files')
@@ -258,8 +266,12 @@ class HertzFitWidget(QtWidgets.QWidget):
         poc_sigma = hertz_params.child('Sigma').value()
         contact_offset = hertz_params.child('Contact Offset').value() / 1e6
 
-        # Get the Correct App parameter value for overshoot correction
-        correct_overshoot = self.params.child('General Options').child('Correct App').value()
+        # Get the Correct App parameter value for overshoot correction (default False if not found)
+        correct_overshoot = False
+        try:
+            correct_overshoot = self.params.child('General Options').child('Correct App').value()
+        except KeyError:
+            pass  # Parameter may not exist
         force_curve = self.current_file.getcurve(current_curve_indx, bool_correct_overshoot=correct_overshoot)
         force_curve.preprocess_force_curve(deflection_sens, height_channel)
 
@@ -326,14 +338,20 @@ class HertzFitWidget(QtWidgets.QWidget):
             self.indentation = ext_data.indentation
             self.force = ext_data.force
             # Optionally center force baseline when Correct App is enabled
-            if self.params.child('General Options').child('Correct App').value():
-                self.force = self.force - self.force[0]
+            try:
+                if self.params.child('General Options').child('Correct App').value():
+                    self.force = self.force - self.force[0]
+            except KeyError:
+                pass  # Parameter may not exist
         else:
             self.indentation = ret_data.indentation
             self.force = ret_data.force
             # Optionally center force baseline when Correct App is enabled
-            if self.params.child('General Options').child('Correct App').value():
-                self.force = self.force - self.force[-1]
+            try:
+                if self.params.child('General Options').child('Correct App').value():
+                    self.force = self.force - self.force[-1]
+            except KeyError:
+                pass  # Parameter may not exist
 
         if hertz_params.child('Downsample Signal').value():
             pts_downsample = hertz_params.child('Downsample Pts.').value()
