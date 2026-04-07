@@ -45,6 +45,10 @@ class HertzFitWidget(QtWidgets.QWidget):
         self.paramTree = ParameterTree()
         self.paramTree.setParameters(self.params, showTop=False)
 
+        # Added: Connect Correct App parameter to update
+        self.correct_app = self.params.child('General Options').child('Correct App')
+        self.correct_app.sigValueChanged.connect(self.update)
+
         self.l2 = pg.GraphicsLayoutWidget()
 
         params_layout.addWidget(self.combobox, 1)
@@ -93,6 +97,9 @@ class HertzFitWidget(QtWidgets.QWidget):
         else:
             filedict = {
                 self.session.current_file.filemetadata['Entry_filename']: self.session.current_file}
+        # Log if Correct App option is enabled
+        if self.params.child('General Options').child('Correct App').value():
+            logger.info('Correct App overshoot correction is enabled')
         params = get_params(self.params, "HertzFit")
         logger.info('Started ElasticityFit...')
         logger.info(f'Processing {len(filedict)} files')
@@ -251,7 +258,9 @@ class HertzFitWidget(QtWidgets.QWidget):
         poc_sigma = hertz_params.child('Sigma').value()
         contact_offset = hertz_params.child('Contact Offset').value() / 1e6
 
-        force_curve = self.current_file.getcurve(current_curve_indx)
+        # Get the Correct App parameter value for overshoot correction
+        correct_overshoot = self.params.child('General Options').child('Correct App').value()
+        force_curve = self.current_file.getcurve(current_curve_indx, bool_correct_overshoot=correct_overshoot)
         force_curve.preprocess_force_curve(deflection_sens, height_channel)
 
         if self.session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
@@ -316,10 +325,15 @@ class HertzFitWidget(QtWidgets.QWidget):
         if curve_seg == 'extend':
             self.indentation = ext_data.indentation
             self.force = ext_data.force
-
+            # Optionally center force baseline when Correct App is enabled
+            if self.params.child('General Options').child('Correct App').value():
+                self.force = self.force - self.force[0]
         else:
             self.indentation = ret_data.indentation
             self.force = ret_data.force
+            # Optionally center force baseline when Correct App is enabled
+            if self.params.child('General Options').child('Correct App').value():
+                self.force = self.force - self.force[-1]
 
         if hertz_params.child('Downsample Signal').value():
             pts_downsample = hertz_params.child('Downsample Pts.').value()
