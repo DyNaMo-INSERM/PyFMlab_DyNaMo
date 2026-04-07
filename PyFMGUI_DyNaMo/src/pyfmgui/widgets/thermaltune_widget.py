@@ -159,11 +159,27 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         self.saveButton.setText("save as png")
         self.saveButton.clicked.connect(self.save_results_to_png)
 
+        # Apply and Reset buttons layout
+        apply_reset_layout = QtWidgets.QHBoxLayout()
+        
+        self.applyButton = QtWidgets.QPushButton("applyButton")
+        self.applyButton.setText("Apply Calibration")
+        self.applyButton.clicked.connect(self.apply_calibration)
+        self.applyButton.setEnabled(False)
+        
+        self.resetButton = QtWidgets.QPushButton("resetButton")
+        self.resetButton.setText("Reset Calibration")
+        self.resetButton.clicked.connect(self.reset_calibration)
+        
+        apply_reset_layout.addWidget(self.applyButton)
+        apply_reset_layout.addWidget(self.resetButton)
+
         params_layout.addLayout(file_select_layout, 2)
         params_layout.addLayout(login_layout, 2)
         params_layout.addWidget(self.paramTree, 2)
         params_layout.addWidget(self.pushButton, 1)
         params_layout.addWidget(self.saveButton, 1)
+        params_layout.addLayout(apply_reset_layout, 1)
 
         ## Add 3 plots into the first row (automatic position)
         self.l = pg.GraphicsLayoutWidget()
@@ -808,7 +824,333 @@ class ThermalTuneWidget(QtWidgets.QWidget):
                 }
                 print(f"Saved liquid fit results and ROI for: {self.filename}")
         
+        # Enable the Apply button if we have computed results
+        if (hasattr(self, 'k0_air') and self.k0_air is not None) or \
+           (hasattr(self, 'k0_lq') and self.k0_lq is not None):
+            self.applyButton.setEnabled(True)
+        
         self.update_plot()
+    
+    def apply_calibration(self):
+        """Apply computed thermal tune calibration values to the session"""
+        # Create dialog to choose which medium to apply
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Apply Calibration")
+        dlg.setMinimumWidth(550)
+        dlg.setMinimumHeight(500)
+        
+        layout = QtWidgets.QVBoxLayout()
+        
+        label = QtWidgets.QLabel("Choose which calibration values to apply:")
+        layout.addWidget(label)
+        
+        # Radio buttons for medium selection
+        air_radio = QtWidgets.QRadioButton("Apply Air Calibration")
+        liquid_radio = QtWidgets.QRadioButton("Apply Liquid Calibration")
+        both_radio = QtWidgets.QRadioButton("Apply Both (use Air values)")
+        
+        air_has_data = hasattr(self, 'k0_air') and self.k0_air is not None
+        liquid_has_data = hasattr(self, 'k0_lq') and self.k0_lq is not None
+        
+        air_radio.setEnabled(air_has_data)
+        liquid_radio.setEnabled(liquid_has_data)
+        both_radio.setEnabled(air_has_data and liquid_has_data)
+        
+        if air_has_data:
+            air_radio.setChecked(True)
+        elif liquid_has_data:
+            liquid_radio.setChecked(True)
+        
+        layout.addWidget(air_radio)
+        layout.addWidget(liquid_radio)
+        layout.addWidget(both_radio)
+        
+        layout.addSpacing(15)
+        
+        # Editable values section
+        values_label = QtWidgets.QLabel("Edit calibration values:")
+        values_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(values_label)
+        
+        # Create scroll area for editable fields
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_widget = QtWidgets.QWidget()
+        scroll_layout = QtWidgets.QVBoxLayout()
+        
+        # Air values
+        if air_has_data:
+            air_group = QtWidgets.QGroupBox("Air Calibration Values")
+            air_layout = QtWidgets.QGridLayout()
+            
+            self.air_k0_edit = QtWidgets.QLineEdit()
+            self.air_k0_edit.setText(f"{self.k0_air:.6f}")
+            self.air_k0_edit.setToolTip("Spring constant in N/m")
+            
+            self.air_invols_edit = QtWidgets.QLineEdit()
+            self.air_invols_edit.setText(f"{self.involsValue_air*1e9:.6f}")
+            self.air_invols_edit.setToolTip("Deflection sensitivity in nm/V")
+            
+            self.air_gci_edit = QtWidgets.QLineEdit()
+            self.air_gci_edit.setText(f"{self.GCI_cant_springConst_air:.6f}")
+            self.air_gci_edit.setToolTip("GCI spring constant in N/m")
+            
+            self.air_invols_h_edit = QtWidgets.QLineEdit()
+            self.air_invols_h_edit.setText(f"{self.invOLS_H_air*1e9:.6f}")
+            self.air_invols_h_edit.setToolTip("InVOLS H in nm/V")
+            
+            air_layout.addWidget(QtWidgets.QLabel("k₀ (N/m):"), 0, 0)
+            air_layout.addWidget(self.air_k0_edit, 0, 1)
+            air_layout.addWidget(QtWidgets.QLabel("InVOLS (nm/V):"), 1, 0)
+            air_layout.addWidget(self.air_invols_edit, 1, 1)
+            air_layout.addWidget(QtWidgets.QLabel("GCI k (N/m):"), 2, 0)
+            air_layout.addWidget(self.air_gci_edit, 2, 1)
+            air_layout.addWidget(QtWidgets.QLabel("InVOLS H (nm/V):"), 3, 0)
+            air_layout.addWidget(self.air_invols_h_edit, 3, 1)
+            
+            air_group.setLayout(air_layout)
+            scroll_layout.addWidget(air_group)
+        
+        # Liquid values
+        if liquid_has_data:
+            liquid_group = QtWidgets.QGroupBox("Liquid Calibration Values")
+            liquid_layout = QtWidgets.QGridLayout()
+            
+            self.lq_k0_edit = QtWidgets.QLineEdit()
+            self.lq_k0_edit.setText(f"{self.k0_lq:.6f}")
+            self.lq_k0_edit.setToolTip("Spring constant in N/m")
+            
+            self.lq_invols_edit = QtWidgets.QLineEdit()
+            self.lq_invols_edit.setText(f"{self.involsValue_lq*1e9:.6f}")
+            self.lq_invols_edit.setToolTip("Deflection sensitivity in nm/V")
+            
+            self.lq_gci_edit = QtWidgets.QLineEdit()
+            self.lq_gci_edit.setText(f"{self.GCI_cant_springConst_lq:.6f}")
+            self.lq_gci_edit.setToolTip("GCI spring constant in N/m")
+            
+            self.lq_invols_h_edit = QtWidgets.QLineEdit()
+            self.lq_invols_h_edit.setText(f"{self.invOLS_H_lq*1e9:.6f}")
+            self.lq_invols_h_edit.setToolTip("InVOLS H in nm/V")
+            
+            liquid_layout.addWidget(QtWidgets.QLabel("k₀ (N/m):"), 0, 0)
+            liquid_layout.addWidget(self.lq_k0_edit, 0, 1)
+            liquid_layout.addWidget(QtWidgets.QLabel("InVOLS (nm/V):"), 1, 0)
+            liquid_layout.addWidget(self.lq_invols_edit, 1, 1)
+            liquid_layout.addWidget(QtWidgets.QLabel("GCI k (N/m):"), 2, 0)
+            liquid_layout.addWidget(self.lq_gci_edit, 2, 1)
+            liquid_layout.addWidget(QtWidgets.QLabel("InVOLS H (nm/V):"), 3, 0)
+            liquid_layout.addWidget(self.lq_invols_h_edit, 3, 1)
+            
+            liquid_group.setLayout(liquid_layout)
+            scroll_layout.addWidget(liquid_group)
+        
+        scroll_layout.addStretch()
+        scroll_widget.setLayout(scroll_layout)
+        scroll.setWidget(scroll_widget)
+        layout.addWidget(scroll)
+        
+        layout.addSpacing(10)
+        
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        ok_button = QtWidgets.QPushButton("Apply")
+        cancel_button = QtWidgets.QPushButton("Cancel")
+        ok_button.clicked.connect(dlg.accept)
+        cancel_button.clicked.connect(dlg.reject)
+        button_layout.addWidget(ok_button)
+        button_layout.addWidget(cancel_button)
+        layout.addLayout(button_layout)
+        
+        dlg.setLayout(layout)
+        
+        if dlg.exec() == QtWidgets.QDialog.Accepted:
+            # Get edited values from UI
+            try:
+                if air_has_data:
+                    self.k0_air = float(self.air_k0_edit.text())
+                    self.involsValue_air = float(self.air_invols_edit.text()) / 1e9
+                    self.GCI_cant_springConst_air = float(self.air_gci_edit.text())
+                    self.invOLS_H_air = float(self.air_invols_h_edit.text()) / 1e9
+                
+                if liquid_has_data:
+                    self.k0_lq = float(self.lq_k0_edit.text())
+                    self.involsValue_lq = float(self.lq_invols_edit.text()) / 1e9
+                    self.GCI_cant_springConst_lq = float(self.lq_gci_edit.text())
+                    self.invOLS_H_lq = float(self.lq_invols_h_edit.text()) / 1e9
+                
+                # Determine which values to apply
+                if air_radio.isChecked():
+                    self._apply_air_calibration()
+                elif liquid_radio.isChecked():
+                    self._apply_liquid_calibration()
+                elif both_radio.isChecked():
+                    self._apply_both_calibrations()
+            except ValueError as e:
+                error_dlg = QtWidgets.QMessageBox(self)
+                error_dlg.setWindowTitle("Invalid Input")
+                error_dlg.setText(f"Error: Please enter valid numbers for all fields.\n{str(e)}")
+                error_dlg.setIcon(QtWidgets.QMessageBox.Warning)
+                error_dlg.exec()
+    
+    def _apply_air_calibration(self):
+        """Apply air calibration values to session"""
+        if hasattr(self, 'k0_air') and hasattr(self, 'involsValue_air') and \
+           self.k0_air is not None and self.involsValue_air is not None:
+            
+            self.session.global_k = self.k0_air
+            self.session.global_involts = self.involsValue_air
+            
+            # Store full results in session
+            if not hasattr(self.session, 'thermal_tune_results'):
+                self.session.thermal_tune_results = {}
+            
+            self.session.thermal_tune_results['air'] = {
+                'k0': self.k0_air,
+                'GCI_cant_springConst': self.GCI_cant_springConst_air,
+                'involsValue': self.involsValue_air,
+                'invOLS_H': self.invOLS_H_air,
+                'filename': self.filename,
+                'medium': 'air'
+            }
+            
+            msg = f"Applied Air Calibration:\n\n" \
+                  f"Spring Constant (k₀): {self.k0_air:.6f} N/m\n" \
+                  f"Deflection Sensitivity (InVOLS): {self.involsValue_air*1e9:.3f} nm/V\n" \
+                  f"GCI Spring Const: {self.GCI_cant_springConst_air:.6f} N/m\n" \
+                  f"InVOLS H: {self.invOLS_H_air*1e9:.3f} nm/V"
+            
+            print(msg)
+            self.open_msg_box(msg)
+            
+            # Update button states
+            self.applyButton.setEnabled(False)
+            
+            # Notify other widgets if they're open
+            if self.session.data_viewer_widget:
+                self.session.data_viewer_widget.update_plot()
+        else:
+            self.open_msg_box("Error: Air calibration data not available.\nPlease compute air calibration first.")
+    
+    def _apply_liquid_calibration(self):
+        """Apply liquid calibration values to session"""
+        if hasattr(self, 'k0_lq') and hasattr(self, 'involsValue_lq') and \
+           self.k0_lq is not None and self.involsValue_lq is not None:
+            
+            self.session.global_k = self.k0_lq
+            self.session.global_involts = self.involsValue_lq
+            
+            # Store full results in session
+            if not hasattr(self.session, 'thermal_tune_results'):
+                self.session.thermal_tune_results = {}
+            
+            self.session.thermal_tune_results['liquid'] = {
+                'k0': self.k0_lq,
+                'GCI_cant_springConst': self.GCI_cant_springConst_lq,
+                'involsValue': self.involsValue_lq,
+                'invOLS_H': self.invOLS_H_lq,
+                'filename': self.filename,
+                'medium': 'liquid'
+            }
+            
+            msg = f"Applied Liquid Calibration:\n\n" \
+                  f"Spring Constant (k₀): {self.k0_lq:.6f} N/m\n" \
+                  f"Deflection Sensitivity (InVOLS): {self.involsValue_lq*1e9:.3f} nm/V\n" \
+                  f"GCI Spring Const: {self.GCI_cant_springConst_lq:.6f} N/m\n" \
+                  f"InVOLS H: {self.invOLS_H_lq*1e9:.3f} nm/V"
+            
+            print(msg)
+            self.open_msg_box(msg)
+            
+            # Update button states
+            self.applyButton.setEnabled(False)
+            
+            # Notify other widgets if they're open
+            if self.session.data_viewer_widget:
+                self.session.data_viewer_widget.update_plot()
+        else:
+            self.open_msg_box("Error: Liquid calibration data not available.\nPlease compute liquid calibration first.")
+    
+    def _apply_both_calibrations(self):
+        """Apply both calibrations, preferring air values"""
+        if hasattr(self, 'k0_air') and hasattr(self, 'involsValue_air') and \
+           self.k0_air is not None and self.involsValue_air is not None:
+            
+            self.session.global_k = self.k0_air
+            self.session.global_involts = self.involsValue_air
+            
+            # Store full results in session
+            if not hasattr(self.session, 'thermal_tune_results'):
+                self.session.thermal_tune_results = {}
+            
+            self.session.thermal_tune_results['air'] = {
+                'k0': self.k0_air,
+                'GCI_cant_springConst': self.GCI_cant_springConst_air,
+                'involsValue': self.involsValue_air,
+                'invOLS_H': self.invOLS_H_air,
+                'filename': self.filename,
+                'medium': 'air'
+            }
+            
+            if hasattr(self, 'k0_lq') and self.k0_lq is not None:
+                self.session.thermal_tune_results['liquid'] = {
+                    'k0': self.k0_lq,
+                    'GCI_cant_springConst': self.GCI_cant_springConst_lq,
+                    'involsValue': self.involsValue_lq,
+                    'invOLS_H': self.invOLS_H_lq,
+                    'filename': self.filename,
+                    'medium': 'liquid'
+                }
+            
+            msg = f"Applied Both Calibrations (using Air as global):\n\n" \
+                  f"GLOBAL VALUES (Air):\n" \
+                  f"Spring Constant (k₀): {self.k0_air:.6f} N/m\n" \
+                  f"Deflection Sensitivity (InVOLS): {self.involsValue_air*1e9:.3f} nm/V\n\n"
+            
+            if hasattr(self, 'k0_lq') and self.k0_lq is not None:
+                msg += f"Liquid Calibration also stored:\n" \
+                       f"Spring Constant (k₀): {self.k0_lq:.6f} N/m\n" \
+                       f"Deflection Sensitivity (InVOLS): {self.involsValue_lq*1e9:.3f} nm/V"
+            
+            print(msg)
+            self.open_msg_box(msg)
+            
+            # Update button states
+            self.applyButton.setEnabled(False)
+            
+            # Notify other widgets if they're open
+            if self.session.data_viewer_widget:
+                self.session.data_viewer_widget.update_plot()
+        else:
+            self.open_msg_box("Error: Air calibration data not available.\nPlease compute air calibration first.")
+    
+    def reset_calibration(self):
+        """Reset global calibration values"""
+        dlg = QtWidgets.QMessageBox(self)
+        dlg.setWindowTitle("Reset Calibration")
+        dlg.setText("Are you sure you want to reset the global calibration values?\n\n"
+                   "This will remove the applied thermal tune calibration from all modules.")
+        dlg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        dlg.setDefaultButton(QtWidgets.QMessageBox.No)
+        
+        if dlg.exec() == QtWidgets.QMessageBox.Yes:
+            self.session.global_k = None
+            self.session.global_involts = None
+            self.session.thermal_tune_results = {}
+            
+            # Update button states
+            self.applyButton.setEnabled(True)
+            
+            msg_box = QtWidgets.QMessageBox(self)
+            msg_box.setWindowTitle("Calibration Reset")
+            msg_box.setText("Global calibration values have been reset.\n"
+                           "All modules will now use default file metadata values.")
+            msg_box.exec()
+            
+            print("Calibration reset: global_k and global_involts cleared")
+            
+            # Notify other widgets if they're open
+            if self.session.data_viewer_widget:
+                self.session.data_viewer_widget.updateCurve()
     
     def save_results_to_png(self):
         """Save the current plot as PNG file"""
