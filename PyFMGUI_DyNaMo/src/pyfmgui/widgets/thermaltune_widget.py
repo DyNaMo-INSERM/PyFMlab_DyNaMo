@@ -25,6 +25,10 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         self.air_files_data = []  # List of (filename, ampl, freq, fit_data, params)
         self.liquid_files_data = []  # List of (filename, ampl, freq, fit_data, params)
         
+        # Dictionaries to store fitted results per file (filename -> fit_results)
+        self.air_fit_results = {}  # {filename: {freq_fit, thermal_fit, k0, GCI, invols, invols_h}}
+        self.liquid_fit_results = {}  # {filename: {freq_fit, thermal_fit, k0, GCI, invols, invols_h}}
+        
         # Current selected data (for backward compatibility)
         self.inliquid_thermal_ampl = None
         self.inliquid_thermal_freq = None
@@ -360,116 +364,130 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             event.ignore()
     
     def load_data(self):
-        """Load data from either .dat or .tnd file"""
-        fname, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, 'Open file', './', "Thermal files (*.dat *.tnd)"
+        """Load multiple data files from either .dat or .tnd files"""
+        fnames, _ = QtWidgets.QFileDialog.getOpenFileNames(
+            self, 'Open files', './', "Thermal files (*.dat *.tnd)"
         )
         
-        if not fname:
-            return None, None
+        if not fnames:
+            return []
         
-        self.filename = fname
-        
-        try:
-            if fname.endswith('.dat'):
-                # .dat file returns (ampl, freq, fit_data, params)
-                ampl, freq, fit_data, params = self.read_afm_data(fname)
-                data = (ampl, None, freq, None, params)  # Match .tnd format (5-tuple)
-            else:  # .tnd file
-                # .tnd file returns (ampl, ?, freq, ?, params) - 5 values
-                data = loadfile(fname)
+        results = []
+        for fname in fnames:
+            self.filename = fname
             
-            return data, os.path.basename(fname)
-        except Exception as e:
-            print(f"Error loading file {fname}: {e}")
-            return None, None
+            try:
+                if fname.endswith('.dat'):
+                    # .dat file returns (ampl, freq, fit_data, params)
+                    ampl, freq, fit_data, params = self.read_afm_data(fname)
+                    data = (ampl, None, freq, None, params)  # Match .tnd format (5-tuple)
+                else:  # .tnd file
+                    # .tnd file returns (ampl, ?, freq, ?, params) - 5 values
+                    data = loadfile(fname)
+                
+                results.append((data, os.path.basename(fname)))
+            except Exception as e:
+                print(f"Error loading file {fname}: {e}")
+        
+        return results
 
     def load_air_data(self):
-        """Load air thermal data"""
-        data, fname = self.load_data()
-        if data is None or fname is None:
+        """Load multiple air thermal data files"""
+        data_list = self.load_data()
+        if not data_list:
             return
         
-        # Set filename for analysis functions
-        self.filename = fname
+        for data, fname in data_list:
+            # Unpack the 5-tuple (ampl, ?, freq, ?, params)
+            ampl, _, freq, _, params = data
+            fit_data = np.zeros_like(ampl)
+            
+            # Add the new file to the list
+            self.air_files_data.append((fname, ampl, freq, fit_data, params))
+            
+            # Update the dropdown
+            if fname not in [self.air_file_selector.itemText(i) for i in range(self.air_file_selector.count())]:
+                self.air_file_selector.addItem(fname)
         
-        # Unpack the 5-tuple (ampl, ?, freq, ?, params)
-        ampl, _, freq, _, params = data
-        fit_data = np.zeros_like(ampl)
-        
-        # Add the new file to the list
-        self.air_files_data.append((fname, ampl, freq, fit_data, params))
-        
-        # Update the dropdown
-        if fname not in [self.air_file_selector.itemText(i) for i in range(self.air_file_selector.count())]:
-            self.air_file_selector.addItem(fname)
-        
-        # Select the newly added file (last one)
-        self.air_file_selector.setCurrentText(fname)
-        
-        # Update the current data (for analysis)
-        self.inair_thermal_ampl = ampl
-        self.inair_thermal_freq = freq
-        self.inair_fit_data = fit_data
-        self.inair_params = params
-        self.air_thermal_text.setText(f"{len(self.air_files_data)} files loaded (current: {fname})")
-        
-        # Set ROI region
-        try:
-            resonancef = params.get('parameter.f', 43000)
-            if isinstance(resonancef, str):
-                resonancef = float(resonancef)
-            self.air_roi.setRegion([np.log10(resonancef/2), np.log10(resonancef*2)])
-        except (ValueError, TypeError, KeyError) as e:
-            print(f"Error setting air ROI: {e}, using default frequency")
-            self.air_roi.setRegion([np.log10(43000/2), np.log10(43000*2)])
-        
-        self.update_plot()
+        # Select the last loaded file
+        if data_list:
+            last_fname = data_list[-1][1]
+            self.air_file_selector.setCurrentText(last_fname)
+            
+            # Set filename for analysis functions
+            self.filename = last_fname
+            
+            # Update the current data (for analysis)
+            ampl, _, freq, _, params = data_list[-1][0]
+            fit_data = np.zeros_like(ampl)
+            self.inair_thermal_ampl = ampl
+            self.inair_thermal_freq = freq
+            self.inair_fit_data = fit_data
+            self.inair_params = params
+            self.air_thermal_text.setText(f"{len(self.air_files_data)} files loaded (current: {last_fname})")
+            
+            # Set ROI region
+            try:
+                resonancef = params.get('parameter.f', 43000)
+                if isinstance(resonancef, str):
+                    resonancef = float(resonancef)
+                self.air_roi.setRegion([np.log10(resonancef/2), np.log10(resonancef*2)])
+            except (ValueError, TypeError, KeyError) as e:
+                print(f"Error setting air ROI: {e}, using default frequency")
+                self.air_roi.setRegion([np.log10(43000/2), np.log10(43000*2)])
+            
+            self.update_plot()
 
     def load_liquid_data(self):
-        """Load liquid thermal data"""
-        data, fname = self.load_data()
-        if data is None or fname is None:
+        """Load multiple liquid thermal data files"""
+        data_list = self.load_data()
+        if not data_list:
             return
         
-        # Set filename for analysis functions
-        self.filename = fname
+        for data, fname in data_list:
+            # Unpack the 5-tuple (ampl, ?, freq, ?, params)
+            ampl, _, freq, _, params = data
+            fit_data = np.zeros_like(ampl)
+            
+            # Add the new file to the list
+            self.liquid_files_data.append((fname, ampl, freq, fit_data, params))
+            
+            # Update the dropdown
+            if fname not in [self.lq_file_selector.itemText(i) for i in range(self.lq_file_selector.count())]:
+                self.lq_file_selector.addItem(fname)
         
-        # Unpack the 5-tuple (ampl, ?, freq, ?, params)
-        ampl, _, freq, _, params = data
-        fit_data = np.zeros_like(ampl)
-        
-        # Add the new file to the list
-        self.liquid_files_data.append((fname, ampl, freq, fit_data, params))
-        
-        # Update the dropdown
-        if fname not in [self.lq_file_selector.itemText(i) for i in range(self.lq_file_selector.count())]:
-            self.lq_file_selector.addItem(fname)
-        
-        # Select the newly added file (last one)
-        self.lq_file_selector.setCurrentText(fname)
-        
-        # Update the current data (for analysis)
-        self.inliquid_thermal_ampl = ampl
-        self.inliquid_thermal_freq = freq
-        self.inliquid_fit_data = fit_data
-        self.inliquid_params = params
-        self.lq_thermal_text.setText(f"{len(self.liquid_files_data)} files loaded (current: {fname})")
-        
-        # Set ROI region
-        try:
-            resonancef = params.get('parameter.f', 43000)
-            if isinstance(resonancef, str):
-                resonancef = float(resonancef)
-            self.lq_roi.setRegion([np.log10(resonancef/2), np.log10(resonancef*2)])
-        except Exception as e:
-            print(f"Error setting liquid ROI: {e}")
-        
-        self.update_plot()
+        # Select the last loaded file
+        if data_list:
+            last_fname = data_list[-1][1]
+            self.lq_file_selector.setCurrentText(last_fname)
+            
+            # Set filename for analysis functions
+            self.filename = last_fname
+            
+            # Update the current data (for analysis)
+            ampl, _, freq, _, params = data_list[-1][0]
+            fit_data = np.zeros_like(ampl)
+            self.inliquid_thermal_ampl = ampl
+            self.inliquid_thermal_freq = freq
+            self.inliquid_fit_data = fit_data
+            self.inliquid_params = params
+            self.lq_thermal_text.setText(f"{len(self.liquid_files_data)} files loaded (current: {last_fname})")
+            
+            # Set ROI region
+            try:
+                resonancef = params.get('parameter.f', 43000)
+                if isinstance(resonancef, str):
+                    resonancef = float(resonancef)
+                self.lq_roi.setRegion([np.log10(resonancef/2), np.log10(resonancef*2)])
+            except Exception as e:
+                print(f"Error setting liquid ROI: {e}")
+            
+            self.update_plot()
     
     def clear_air_data(self):
         """Clear all air data"""
         self.air_files_data.clear()
+        self.air_fit_results.clear()
         self.air_file_selector.clear()
         self.inair_thermal_ampl = None
         self.inair_thermal_freq = None
@@ -484,6 +502,7 @@ class ThermalTuneWidget(QtWidgets.QWidget):
     def clear_lq_data(self):
         """Clear all liquid data"""
         self.liquid_files_data.clear()
+        self.liquid_fit_results.clear()
         self.lq_file_selector.clear()
         self.inliquid_thermal_ampl = None
         self.inliquid_thermal_freq = None
@@ -507,14 +526,34 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         self.inair_fit_data = fit_data
         self.inair_params = params
         
-        # Update ROI
-        try:
-            resonancef = params.get('parameter.f', 43000)
-            if isinstance(resonancef, str):
-                resonancef = float(resonancef)
-            self.air_roi.setRegion([np.log10(resonancef/2), np.log10(resonancef*2)])
-        except (ValueError, TypeError, KeyError):
-            self.air_roi.setRegion([np.log10(43000/2), np.log10(43000*2)])
+        # Check if this file has been fitted before and restore fit results
+        if fname in self.air_fit_results:
+            fit_res = self.air_fit_results[fname]
+            self.freq_fit_air = fit_res['freq_fit']
+            self.thermal_fit_air = fit_res['thermal_fit']
+            self.k0_air = fit_res['k0']
+            self.GCI_cant_springConst_air = fit_res['GCI_cant_springConst']
+            self.involsValue_air = fit_res['involsValue']
+            self.invOLS_H_air = fit_res['invOLS_H']
+            
+            # Restore ROI region
+            if 'roi_region' in fit_res:
+                self.air_roi.setRegion(fit_res['roi_region'])
+            
+            print(f"Restored fit results for: {fname}")
+        else:
+            # Clear fit data if this file hasn't been fitted
+            self.thermal_fit_air = None
+            self.freq_fit_air = None
+            
+            # Set default ROI region
+            try:
+                resonancef = params.get('parameter.f', 43000)
+                if isinstance(resonancef, str):
+                    resonancef = float(resonancef)
+                self.air_roi.setRegion([np.log10(resonancef/2), np.log10(resonancef*2)])
+            except (ValueError, TypeError, KeyError):
+                self.air_roi.setRegion([np.log10(43000/2), np.log10(43000*2)])
         
         self.update_plot()
     
@@ -530,14 +569,34 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         self.inliquid_fit_data = fit_data
         self.inliquid_params = params
         
-        # Update ROI
-        try:
-            resonancef = params.get('parameter.f', 43000)
-            if isinstance(resonancef, str):
-                resonancef = float(resonancef)
-            self.lq_roi.setRegion([np.log10(resonancef/2), np.log10(resonancef*2)])
-        except (ValueError, TypeError, KeyError):
-            self.lq_roi.setRegion([np.log10(43000/2), np.log10(43000*2)])
+        # Check if this file has been fitted before and restore fit results
+        if fname in self.liquid_fit_results:
+            fit_res = self.liquid_fit_results[fname]
+            self.freq_fit_lq = fit_res['freq_fit']
+            self.thermal_fit_lq = fit_res['thermal_fit']
+            self.k0_lq = fit_res['k0']
+            self.GCI_cant_springConst_lq = fit_res['GCI_cant_springConst']
+            self.involsValue_lq = fit_res['involsValue']
+            self.invOLS_H_lq = fit_res['invOLS_H']
+            
+            # Restore ROI region
+            if 'roi_region' in fit_res:
+                self.lq_roi.setRegion(fit_res['roi_region'])
+            
+            print(f"Restored fit results for: {fname}")
+        else:
+            # Clear fit data if this file hasn't been fitted
+            self.thermal_fit_lq = None
+            self.freq_fit_lq = None
+            
+            # Set default ROI region
+            try:
+                resonancef = params.get('parameter.f', 43000)
+                if isinstance(resonancef, str):
+                    resonancef = float(resonancef)
+                self.lq_roi.setRegion([np.log10(resonancef/2), np.log10(resonancef*2)])
+            except (ValueError, TypeError, KeyError):
+                self.lq_roi.setRegion([np.log10(43000/2), np.log10(43000*2)])
         
         self.update_plot()
     
@@ -697,6 +756,21 @@ class ThermalTuneWidget(QtWidgets.QWidget):
                     self.cantType, username = self.session.sader_username,
                     password = self.session.sader_password, selectedCantCode = self.selectedCantCode
                 )
+            
+            # Save fit results and ROI region for this file
+            if self.filename:
+                roi_min, roi_max = self.air_roi.getRegion()
+                self.air_fit_results[self.filename] = {
+                    'freq_fit': self.freq_fit_air,
+                    'thermal_fit': self.thermal_fit_air,
+                    'k0': self.k0_air,
+                    'GCI_cant_springConst': self.GCI_cant_springConst_air,
+                    'involsValue': self.involsValue_air,
+                    'invOLS_H': self.invOLS_H_air,
+                    'roi_region': [roi_min, roi_max]
+                }
+                print(f"Saved air fit results and ROI for: {self.filename}")
+        
         # Liquid
         if self.inliquid_thermal_ampl is not None and self.inliquid_thermal_freq is not None:
             minfreq, maxfreq = self.lq_roi.getRegion()
@@ -719,6 +793,21 @@ class ThermalTuneWidget(QtWidgets.QWidget):
                     self.cantType, username = self.session.sader_username,
                     password = self.session.sader_password, selectedCantCode = self.selectedCantCode
                 )
+            
+            # Save fit results and ROI region for this file
+            if self.filename:
+                roi_min, roi_max = self.lq_roi.getRegion()
+                self.liquid_fit_results[self.filename] = {
+                    'freq_fit': self.freq_fit_lq,
+                    'thermal_fit': self.thermal_fit_lq,
+                    'k0': self.k0_lq,
+                    'GCI_cant_springConst': self.GCI_cant_springConst_lq,
+                    'involsValue': self.involsValue_lq,
+                    'invOLS_H': self.invOLS_H_lq,
+                    'roi_region': [roi_min, roi_max]
+                }
+                print(f"Saved liquid fit results and ROI for: {self.filename}")
+        
         self.update_plot()
     
     def save_results_to_png(self):
