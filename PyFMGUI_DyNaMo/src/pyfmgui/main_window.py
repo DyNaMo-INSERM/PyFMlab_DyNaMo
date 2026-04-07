@@ -206,7 +206,7 @@ class MainWindow(QtWidgets.QMainWindow):
 			fname, _ = QtWidgets.QFileDialog.getOpenFileName(
 				self, 
 				'Open file', 
-				r'./', 
+				self.session.last_browsed_paths['afm_files'],
 				"""
 				JPK files (*.jpk-force *.jpk-force-map *.jpk-qi-data *.jpk-force.zip *.jpk-force-map.zip *.jpk-qi-data.zip);;
 				JPK NW5 files (*.h5-jpk);;
@@ -220,12 +220,14 @@ class MainWindow(QtWidgets.QMainWindow):
 				"""
 			)
 			if fname != "" and fname is not None:
+				self.session.last_browsed_paths['afm_files'] = os.path.dirname(fname)
 				self.load_files([fname])
 		elif q.text() == "Load Folder":
 			dirname = QtWidgets.QFileDialog.getExistingDirectory(
-				self, 'Choose Directory', r'./'
+				self, 'Choose Directory', self.session.last_browsed_paths['afm_files']
 			)
 			if dirname != "" and dirname is not None:
+				self.session.last_browsed_paths['afm_files'] = dirname
 				valid_files = self.getFileList(dirname)
 				if valid_files != []:
 					self.load_files(valid_files)

@@ -160,9 +160,10 @@ class VDragWidget(QtWidgets.QWidget):
     
     def load_piezo_char(self):
         fname, _ = QtWidgets.QFileDialog.getOpenFileName(
-        	self, 'Open file', './', "Piezo Char Files (*.csv)"
+        	self, 'Open file', self.session.last_browsed_paths['piezo_files'], "Piezo Char Files (*.csv)"
         )
         if fname != "":
+            self.session.last_browsed_paths['piezo_files'] = os.path.dirname(fname)
             self.session.piezo_char_file_path = fname
             self.piezochar_text.setText(os.path.basename(self.session.piezo_char_file_path))
             piezo_char_data_raw = pd.read_csv(self.session.piezo_char_file_path)

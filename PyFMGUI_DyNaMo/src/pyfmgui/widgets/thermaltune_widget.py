@@ -382,11 +382,14 @@ class ThermalTuneWidget(QtWidgets.QWidget):
     def load_data(self):
         """Load multiple data files from either .dat or .tnd files"""
         fnames, _ = QtWidgets.QFileDialog.getOpenFileNames(
-            self, 'Open files', './', "Thermal files (*.dat *.tnd)"
+            self, 'Open files', self.session.last_browsed_paths['thermal_files'], "Thermal files (*.dat *.tnd)"
         )
         
         if not fnames:
             return []
+        
+        # Update the last browsed directory
+        self.session.last_browsed_paths['thermal_files'] = os.path.dirname(os.path.abspath(fnames[0]))
         
         results = []
         for fname in fnames:
@@ -1162,8 +1165,11 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             default_path = "thermal_analysis.png"
         
         file_path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, "Save as PNG", default_path, "PNG Images (*.png)"
+            self, "Save as PNG", os.path.join(self.session.last_browsed_paths['thermal_files'], default_path), "PNG Images (*.png)"
         )
+        
+        if file_path:
+            self.session.last_browsed_paths['thermal_files'] = os.path.dirname(file_path)
         
         if not file_path:
             return

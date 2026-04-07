@@ -35,6 +35,16 @@ class Session:
         'vdrag_results': None,
         'microrheo_results': None
         }
+        # Path memory for file dialogs - remember last browsed directories
+        import os
+        self.last_browsed_paths = {
+            'afm_files': os.path.expanduser("~"),
+            'thermal_files': os.path.expanduser("~"),
+            'piezo_files': os.path.expanduser("~"),
+            'macro_files': os.path.expanduser("~"),
+            'export_dir': os.path.expanduser("~"),
+            'general': os.path.expanduser("~")
+        }
     
     def remove_piezo_char_data(self):
         self.piezo_char_data = None
