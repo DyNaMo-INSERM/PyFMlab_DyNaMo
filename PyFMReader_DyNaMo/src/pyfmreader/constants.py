@@ -1,11 +1,17 @@
 # File containing constants used in the package.
 
 # File extensions of files supported by this library
-jpkfiles = ('jpk-force', 'jpk-force-map', 'jpk-qi-data')        # As in 18-07-2022
+jpkfiles = ('jpk-force', 'jpk-force-map', 'jpk-qi-data','jpk-qi-series')        # As in 18-07-2022
+jpk_h5_file = ('h5-jpk','JPK MultiScan Force Map Spectroscopy')                                        # As in 18-08-2025
 nanoscfiles = ('spm', 'pfc')                                    # As in 18-07-2022
 ufffiles = ('uff')                                              # As in 18-07-2022
 jpkthermalfiles = ('tnd')                                       # As in 18-07-2022
-psnexfiles = ('tdms','.tdms','PSNEX.tdms')                                       # As in 31.05.2024
+psnexfiles = ('PSNEX.tdms')                      # As in 31.05.2024
+hs3files = ( 'HS3.tdms')                      # As in 31.05.2024
+
+ibwfiles = ('.ibw')                                             # As in 31.06.2025
+ARDFfiles = ('.ARDF')                                           # As in 31.06.2025
+
 
 # Default values for UFF (Universal File Format) files.
 UFF_code = '_1_2_3_4_5'                                         # Default UFF code for V.0.1.1

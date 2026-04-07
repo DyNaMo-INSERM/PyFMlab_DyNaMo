@@ -39,7 +39,6 @@ def parsePSNEXheader(filepath):
     file_metadata["file_id"] = ps_nex_meta["filename"]
     file_metadata["Entry_date"] = ps_nex_meta.get("date")
     file_metadata["Entry_tot_nb_curve"] = int(ps_nex_meta.get("number_consecutive_scans"))
-
     #Software version control
     file_metadata["psnex_file_format_version"] = ps_nex_meta.get("TDMS_HSFS_file_version")
     file_metadata["psnex_software_version"] = ps_nex_meta.get("FPGA_SW_version")
@@ -84,9 +83,17 @@ def parsePSNEXheader(filepath):
         file_metadata[f"system_{ax}_piezo_sensitivity_(nm/V)"] = float(ps_nex_meta.get(f"system_{ax}_piezo_sensitivity_(nm/V)"))
 
     #mapping stuff 
-    file_metadata["mapping_bool"] = bool(ps_nex_meta.get("mapping_(bool)"))
-    if file_metadata["mapping_bool"]:
-    
+    file_metadata["force_volume"] = bool(ps_nex_meta.get("mapping_(bool)"))
+
+    if file_metadata["force_volume"]:
+        #TODO: add map size and num of pixels 
+        file_metadata['num_x_pixels'] = 0
+        file_metadata['num_y_pixels'] = 0
+        #in the scan size needs to be in m
+        file_metadata['scan_size_x'] = 0
+        file_metadata['scan_size_y'] = 0
+
+
         file_metadata["X_closed_loop_bool"] = bool(ps_nex_meta.get("X_closed_loop_(bool)"))
         
         file_metadata["Y_closed_loop_bool"] = bool(ps_nex_meta.get("Y_closed_loop_(bool)"))

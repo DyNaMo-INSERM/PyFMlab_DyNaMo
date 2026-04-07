@@ -28,7 +28,7 @@ Full usage instructions, examples, and model descriptions are available in the [
 ## Run software
 A zip containing the frozen GUI application can be found and downloaded here:
 
-https://zenodo.org/records/14889564
+https://zenodo.org/records/16942211
 
 To run, extract the contents of the .zip and run the main.exe file.
 

@@ -15,7 +15,7 @@ class HertzModel:
         self.ind_geom = ind_geom         # No units
         self.tip_parameter = tip_param   # If radius units is meters, If half angle units is degrees
         self.correction_model = correction_model
-        self.fit_method = 'leastsq'
+        self.fit_method = 'leastsq' #leastsq is the default, Least-Squares minimization, using Trust Region Reflective method
         # Compiutation params
         self.fit_hline_flag = False
         self.apply_correction_flag = False
@@ -55,8 +55,10 @@ class HertzModel:
         self.redchi = None
         #this is to store the max indentation of a fitted force curve
         self.max_ind = None
-        #this is to store the sample height from a force curve
+        #this is to store the POC initial estimate
         self.z_c = None
+        #this is to store the Z height at setpoint in m
+        self.z_at_setpoint = None
 
     
     def get_correction_coeffs(self, sample_height, indentation):
@@ -92,10 +94,7 @@ class HertzModel:
     def model(self, indentation, delta0, E0, f0, slope=None, sample_height=None):
         # Define output array
         force = np.zeros(indentation.shape)
-        # Find the index where indentation is 0
-        idx = (np.abs(indentation - delta0)).argmin()
-        # Get the value of the contact point
-        delta0 = indentation[idx]
+        
         # Get indenter shape coefficient and exponent
         coeff, n = get_coeff(self.ind_geom, self.tip_parameter, self.poisson_ratio)
         # Get bottom effect correction coefficients
@@ -105,19 +104,25 @@ class HertzModel:
             correction_coeffs = self.get_correction_coeffs(sample_height, indentation)
         else:
             correction_coeffs = np.ones(indentation.shape)
-        # Compute the force using hertz model
-        for i in range(len(force)):
-            if indentation[i] < delta0:
-                if self.fit_hline_flag:
-                    # Fit a line on the non contact part
-                    force[i] = (indentation[i] - delta0) * slope + f0
-                else:
-                    # Assign f0 as force value
-                    force[i] = f0
-            else:
-                # Fit Hertz model on the contact part
-                # F = F0 * Correction Coefficient
-                force[i] = coeff * correction_coeffs[i] * E0 * np.power((indentation[i] - delta0), n) + f0
+        # Compute the force using Hertz model
+        non_contact_mask = indentation < delta0
+        contact_mask = ~non_contact_mask
+
+        # Non-contact part
+        if self.fit_hline_flag:
+            # Fit a line on the non contact part
+            force[non_contact_mask] = (indentation[non_contact_mask] - delta0) * slope + f0
+        else:
+            # Assign f0 as force value
+            force[non_contact_mask] = f0
+
+        # Contact part
+        # Fit Hertz model on the contact part
+        # F = F0 * Correction Coefficient
+        force[contact_mask] = (
+            coeff * correction_coeffs[contact_mask] * E0 * np.power((indentation[contact_mask] - delta0), n) + f0
+        )
+
         return force
 
     def fit(self, indentation, force, sample_height=None):

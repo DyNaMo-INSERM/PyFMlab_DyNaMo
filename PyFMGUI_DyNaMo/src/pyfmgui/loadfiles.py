@@ -15,6 +15,8 @@ def load_single_file(filepath):
         file_type = file.filemetadata['file_type']
         if file.isFV and file_type in const.nanoscope_file_extensions:
             file.getpiezoimg()
+        if file.isFV and file_type in const.asylum_file_extensions:
+            file.getpiezoimg()
         return (file_id, file)
     except Exception as error:
         logger.info(f'Failed to load {filepath} with error: {error}')

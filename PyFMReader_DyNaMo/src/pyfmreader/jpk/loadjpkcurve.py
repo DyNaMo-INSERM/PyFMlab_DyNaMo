@@ -1,7 +1,7 @@
 # File containing the loadJPKcurve function,
 # used to load single force curves from JPK files.
 
-from struct import unpack
+from struct import unpack,calcsize,iter_unpack,unpack_from
 from itertools import groupby
 import numpy as np
 
@@ -53,8 +53,15 @@ def loadJPKcurve(paths, afm_file, curve_index, file_metadata):
                 elif 'short' in conversion_factors["encoder_type"]:
                     divider = 2
                     format_id = 'h'
+                elif 'float' in conversion_factors["encoder_type"]:
+                    divider = 4
+                    format_id = 'f'
+                    
                 nbr_points = afm_file.getinfo(path).file_size // divider
                 filecontents = afm_file.read(path)
+                expected_size = nbr_points * calcsize(format_id)
+                if len(filecontents) > expected_size:
+                    filecontents = filecontents[:expected_size]
                 data_raw = unpack(f">{str(nbr_points)}{format_id}", filecontents)
                 segment_raw_data[data_type] = data_raw
         
@@ -122,6 +129,8 @@ def loadJPKcurve(paths, afm_file, curve_index, file_metadata):
 
         if segment.segment_type == "Approach":
             force_curve.extend_segments.append((int(segment.segment_id), segment))
+            #storing z at setpoint
+            force_curve.z_at_setpoint = segment.segment_formated_data[height_channel_key][-1]
         elif segment.segment_type == "Retract":
             force_curve.retract_segments.append((int(segment.segment_id), segment))
         elif segment.segment_type == "Pause":

@@ -4,11 +4,12 @@ import pandas as pd
 import numpy as np
 import traceback
 import json
+import tifffile
 
 # Import for multiprocessing
 import concurrent.futures
 from functools import partial
-
+from pyfmreader import loadfile
 result_types = [
     'hertz_results',
     'ting_results', 
@@ -18,6 +19,8 @@ result_types = [
 ]
 
 def unpack_hertz_result(row_dict, hertz_result):
+    #this is to store the z height at the setpoint of from the force curve
+    row_dict['z_at_setpoint'] = hertz_result.z_at_setpoint
     row_dict['hertz_ind_geometry'] = hertz_result.ind_geom
     row_dict['hertz_tip_parameter'] = hertz_result.tip_parameter
     row_dict['hertz_apply_BEC'] = hertz_result.apply_correction_flag
@@ -35,10 +38,11 @@ def unpack_hertz_result(row_dict, hertz_result):
     row_dict['hertz_Rsquared'] = hertz_result.Rsquared
     row_dict['hertz_chisq'] = hertz_result.chisq
     row_dict['hertz_redchi'] = hertz_result.redchi
-    #this is to store the max indentation of a fitted force curve & sample height
-
+    #  Intial POC  estimate from ROV or regula falsi method
     row_dict['hertz_z_c'] = hertz_result.z_c
+    # this is indentation calculated from the POC estimated by the fit (hertz.delta0)
     row_dict['hertz_max_ind'] = hertz_result.max_ind
+    
 
     return row_dict
 
@@ -101,12 +105,16 @@ def get_file_results(result_type, file_metadata_and_results):
     file_path = filemetadata['file_path']
     k = filemetadata['spring_const_Nbym']
     defl_sens = filemetadata['defl_sens_nmbyV']
-    defl_sens = filemetadata['defl_sens_nmbyV']
-    num_x_px = int(filemetadata.get("num_x_pixels") )
-    num_y_px = int(filemetadata.get("num_y_pixels"))
-    #px size in m (for both jpk and nanscope files) 
-    scan_x_size = float(filemetadata.get("scan_size_x") )
-    scan_y_size = float(filemetadata.get("scan_size_y") )
+    num_x_px,num_y_px = 0,0
+    scan_x_size,scan_y_size=0,0
+    if bool(filemetadata['force_volume']):
+
+        num_x_px = int(filemetadata.get("num_x_pixels") )
+        num_y_px = int(filemetadata.get("num_y_pixels"))
+        #px size in m (for both jpk and nanscope files) 
+        scan_x_size = float(filemetadata.get("scan_size_x") )
+        scan_y_size = float(filemetadata.get("scan_size_y") )
+
     scan_size_m = json.dumps([scan_x_size,scan_y_size])
     map_size = json.dumps([num_x_px,num_y_px])
 
@@ -115,7 +123,7 @@ def get_file_results(result_type, file_metadata_and_results):
         curve_indx = curve_result[0]
         row_dict = {
             'file_path': file_path, 'file_id': file_id, 
-            'curve_idx': curve_indx, 'kcanti': k, 'defl_sens': defl_sens,
+            'curve_idx': curve_indx ,'kcanti': k, 'defl_sens': defl_sens,
             'scan_size_x_y_m': scan_size_m,'map_size_x_y_pixels': map_size,
         }
         try:
@@ -213,4 +221,89 @@ def export_results(results, dirname, file_prefix):
             continue
         result_df.to_csv(os.path.join(dirname, f'{file_prefix}_{result_type}.csv'), index=False)
         success_flag = True
+    return success_flag
+
+
+def find_piezo_coord(nx,ny,file_path = ''):
+    file_ext = file_path.split(os.extsep)[-1]
+
+    piezoimg_corrd = np.arange(nx*ny).reshape((ny, nx))
+    if file_ext =='jpk-force-map':
+        
+        piezoimg_corrd = np.asarray([row[::(-1)**i] for i, row in enumerate(piezoimg_corrd)])
+    elif file_ext == 'h5-jpk':
+        h5_uff = loadfile(file_path)
+        piezoimg_corrd = h5_uff.imagedata['coordinate']
+    
+    map_corrd_2D = np.rot90(np.fliplr(piezoimg_corrd))
+    map_corrd_lin = map_corrd_2D.flatten()
+    return map_corrd_2D, map_corrd_lin
+    
+
+def tiff_results(df_fileid, dirname, file_prefix, result_type):
+    success_check = 0
+
+    # Input validation
+    if not isinstance(df_fileid, pd.DataFrame) or df_fileid.empty:
+        return
+
+    first_row = df_fileid.iloc[0]
+    name = first_row['file_id']
+    extension = name.split('.')[-1]
+    file_path =first_row['file_path'] 
+    nx, ny = json.loads(first_row['map_size_x_y_pixels'])
+    scan_size_x, scan_size_y = json.loads(first_row['scan_size_x_y_m'])
+
+    Param1_lin = np.nan * np.ones(nx * ny)
+    _, map_corrd_lin = find_piezo_coord(nx, ny, file_path)
+    N_curve = len(map_corrd_lin)
+
+    # Assign result field names only once
+    result_id_1 = None
+    result_id_2 = None
+    if result_type == 'hertz_results':
+        df_fileid['log10_hertz_E'] = np.log10(
+            df_fileid["hertz_E"].replace(0, np.nan)).to_numpy()
+        results_id = ['log10_hertz_E','hertz_E', 'hertz_delta0','z_at_setpoint']
+    elif result_type == 'ting_results':
+        df_fileid['log10_ting_E0'] = np.log10(
+            df_fileid["ting_E0"].replace(0, np.nan)).to_numpy()
+        results_id = ['log10_ting_E0','ting_E0', 'ting_betaE','z_at_setpoint']
+    else:
+        #results_id = None
+        # Unknown result_type
+        return
+
+    for res in results_id:
+        for i in range(N_curve):
+            temp_cid = map_corrd_lin[i]
+            df_found = df_fileid[df_fileid['curve_idx'].isin([temp_cid])]
+            if len(df_found) == 1:
+                Param1_lin[i] = df_found[res].iloc[0]
+
+        # Reshape and flip maps
+        Map_2d_1 = np.reshape(Param1_lin, (nx, ny))
+        Map_2d_1 = np.flipud(Map_2d_1)
+
+        # Save TIFFs if arrays are valid
+        if Map_2d_1 is not None:
+
+            tifffile.imwrite(
+                os.path.join(dirname, f'{file_prefix}_{res}_{name}.tiff'),
+                Map_2d_1,
+                resolution=(nx * 1e-2 / scan_size_x, ny * 1e-2 / scan_size_y),
+                resolutionunit='CENTIMETER'
+            )
+            success_check += 1
+    return success_check
+
+def export_to_tiff(res, dirname, file_prefix, result_type):
+    success_flag = False
+    if isinstance(res, pd.DataFrame):
+        group_file = res.groupby(by='file_id')
+    
+        for name, df_fileid in group_file:
+            success_check = tiff_results(df_fileid, dirname, file_prefix, result_type)
+            if success_check > 1:
+                success_flag = True
     return success_flag

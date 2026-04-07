@@ -6,7 +6,7 @@ from ..models.hertz import HertzModel
 def doHertzFit(fdc, param_dict):
     # Get segment data
     if param_dict['curve_seg'] == 'extend':
-        segment_data = fdc.extend_segments[0][1]
+        segment_data = fdc.extend_segments[-1][1]
     else:
         segment_data = fdc.retract_segments[-1][1]
         segment_data.zheight = segment_data.zheight[::-1]
@@ -52,9 +52,12 @@ def doHertzFit(fdc, param_dict):
     force = segment_data.force
 
     contact_mask = indentation >= 0
-    ncont_ind = indentation[~contact_mask]
+    #to reduce the number of points in the non-contact region, we use a contact offset
+    non_contact_mask = (indentation < 0)& (indentation>-1*param_dict['contact_offset'])
+
+    ncont_ind = indentation[non_contact_mask]
     cont_ind = indentation[contact_mask]
-    ncont_force = force[~contact_mask]
+    ncont_force = force[non_contact_mask]
     cont_force = force[contact_mask]
     if param_dict['fit_range_type'] == 'indentation':
         mask = (cont_ind >= param_dict['min_ind']) & (cont_ind <= param_dict['max_ind'])
@@ -66,7 +69,8 @@ def doHertzFit(fdc, param_dict):
     force = np.r_[ncont_force, cont_force]
     # Perform fit
     hertz_model = HertzModel(param_dict['contact_model'], param_dict['tip_param'])
-
+    #storing the Z at setpoint in the model better for export 
+    hertz_model.z_at_setpoint = fdc.z_at_setpoint
     hertz_model.fit_hline_flag = param_dict['fit_line']
     hertz_model.d0_init = param_dict['d0']
     if not param_dict['auto_init_E0']:
@@ -76,10 +80,15 @@ def doHertzFit(fdc, param_dict):
         hertz_model.slope_init = param_dict['slope']
     if param_dict.get('fit_method', None) is not None:
         hertz_model.fit_method = param_dict['fit_method']
+    #constraining the bounds of delta0 form +- inf 
+    hertz_model.delta0_max = np.max(segment_data.zheight)
+    hertz_model.delta0_min = -hertz_model.delta0_max
+
     hertz_model.fit(indentation, force)
 
-    hertz_model.z_c = poc[0]
+    hertz_model.z_c = -1*poc[0]
     true_indentation = indentation - hertz_model.delta0
+    
     hertz_model.max_ind = np.max(true_indentation[true_indentation>0])
     # Return fitted model object
     return hertz_model

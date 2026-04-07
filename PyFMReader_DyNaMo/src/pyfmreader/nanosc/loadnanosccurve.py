@@ -143,4 +143,7 @@ def loadNANOSCcurve(idx, header):
         force_curve.extend_segments.append(('0', appsegment))
         force_curve.retract_segments.append(('1', retsegment))
 
+        #TODO check this for a nanoscope file 
+        force_curve.z_at_setpoint = appsegment.segment_formated_data['height'][-1]
+
         return force_curve

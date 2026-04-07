@@ -14,7 +14,7 @@ def doMicrorheologySine(fdc, param_dict):
     amp_quotient = 1
     # Get segment data to obtain the working indentation 
     if param_dict['curve_seg'] == 'extend':
-        segment_data = fdc.extend_segments[0][1]
+        segment_data = fdc.extend_segments[-1][1]
     else:
         segment_data = fdc.retract_segments[-1][1]
         segment_data.zheight = segment_data.zheight[::-1]

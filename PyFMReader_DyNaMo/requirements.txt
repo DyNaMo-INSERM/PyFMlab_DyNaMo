@@ -6,3 +6,4 @@ pytz>=2023.3
 six>=1.16.0
 tifffile>=2023.4.12
 tzdata>=2023.3
+afmformats>=0.18.0

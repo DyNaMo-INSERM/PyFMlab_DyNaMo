@@ -55,7 +55,8 @@ def get_params(params, method):
         param_dict['max_force'] = hertz_params.child('Max Force').value() / 1e9 #nN
         param_dict['min_force'] = hertz_params.child('Min Force').value() / 1e9 #nN
         param_dict['fit_line'] = hertz_params.child('Fit Line to non contact').value()
-    
+        param_dict['contact_offset'] = hertz_params.child('Contact Offset').value() / 1e6 #um
+
     # TingFit specific parameters
     elif method == "TingFit":
         # Define downsample for hertzfit flag

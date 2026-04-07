@@ -9,8 +9,10 @@ from .canti_list import canti_list
 pyFM_VERSION = "PyFMLab v.1.0.2"
 
 # FILE CONSTANTS ##################################################
-jpk_file_extensions = ('jpk-force', 'jpk-force-map', 'jpk-qi-data')
+jpk_file_extensions = ('jpk-force', 'jpk-force-map', 'jpk-qi-data','jpk-qi-series')
 nanoscope_file_extensions = ('spm', 'pfc')
+jpk_h5_file = ('h5-jpk','JPK MultiScan Force Map Spectroscopy')                                        # As in 18-08-2025
+asylum_file_extensions = ('ARDF', 'ibw')
 
 # ANALYSIS CONSTANTS ##############################################
 available_geometries = ['paraboloid', 'cone', 'pyramid']
@@ -108,7 +110,9 @@ class HertzFitParams(pTypes.GroupParameter):
             {'name': 'Init d0', 'type': 'float', 'value': 0, 'units':'nm'},
             {'name': 'Init f0', 'type': 'float', 'value': 0, 'units':'nN'},
             {'name': 'Fit Line to non contact', 'type': 'bool', 'value':False},
-            {'name': 'Init Slope', 'type': 'float', 'value': 0}
+            {'name': 'Init Slope', 'type': 'float', 'value': 0},
+            {'name': 'Contact Offset', 'type': 'float', 'value': 1, 'units':'um'},
+
         ])
 
         self.poc_mode = self.param('PoC Method')

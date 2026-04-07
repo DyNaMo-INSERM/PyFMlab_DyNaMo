@@ -6,6 +6,7 @@
 # get_segments()
 # preprocess_force_curve()
 # get_force_vs_indentation()
+import matplotlib.pyplot as plt
 
 
 class ForceCurve:
@@ -20,13 +21,16 @@ class ForceCurve:
                     retract_segments (list): List containing retract segments.
                     pause_segments (list): List containing pause segments.
                     modulation_segments (list): List containing modulation segments.
-            
+
             Methods:
                     get_segments
     """
+
     def __init__(self, curve_index, file_id):
         self.file_id = file_id
         self.curve_index = curve_index
+        # Z at setpoint in meters, last point of the zheight in extend segment
+        self.z_at_setpoint = 0
         self.extend_segments = []
         self.retract_segments = []
         self.pause_segments = []
@@ -37,14 +41,15 @@ class ForceCurve:
         Get all the force curve segments ordered by their segment id.
 
                 Parameters: None
-                
+
                 Returns: List containing all the force curve segments sorted by their segment id.
         """
         force_curve_segments = [
-            *self.extend_segments, *self.pause_segments, *self.modulation_segments, *self.retract_segments
+            *self.extend_segments, *self.pause_segments, *
+            self.modulation_segments, *self.retract_segments
         ]
         return sorted(force_curve_segments, key=lambda x: int(x[0]))
-    
+
     def preprocess_force_curve(self, deflection_sens, height_channel_key, y0=None):
         """
         Computes Vertical Deflection in m and populates the vdeflection, zheight 
@@ -59,28 +64,36 @@ class ForceCurve:
                         deflection_sens (float): In m/V
                         height_channel_key (str): Dictionary key to find height data in self.segment_formated_data.
                         y0 (float): Manual offset for the vertical deflection, in Volts.
-                
+
                 Returns: None
         """
         for _, segment in self.get_segments():
+            # plt.plot(segment.segment_formated_data['time'],
+            #          segment.segment_formated_data['vDeflection'])
             segment.preprocess_segment(deflection_sens, height_channel_key, y0)
-    
+
     def shift_height(self):
         """
         Shifts the values of zheight using the last zheight value of the last retract segment.
         This operation is necessary to process JPK files.
-        
-        xzero(m) = last zheight value of last retract segment
-        shifted zheight = xzero(m) − zheight(m)
+
+        UPDATED by YS and felix : 2025-07-25, the height is NOT Shifted, 
+        but only made negative for the rest  
+        created a new variable to store the zheight at setpoint 
+
+        xzero(m) = last zheight value of last retract segment (m)
+        shifted zheight = 0(m) − zheight(m)
 
                 Parameters: None
-                
+
                 Returns: None
         """
-        xzero = self.retract_segments[-1][-1].zheight[-1] # Maximum height
+        xzero = self.retract_segments[-1][-1].zheight[-1]  # Maximum height
+        self.z_at_setpoint = xzero
         for _, segment in self.get_segments():
-                segment.zheight = xzero - segment.zheight
-        
+            # segment.zheight = xzero - segment.zheight
+            segment.zheight = 0 - segment.zheight
+
     def get_force_vs_indentation(self, poc, spring_constant):
         """
         Computes force vs indentation curve from deflection and piezo_height and populates
@@ -94,7 +107,7 @@ class ForceCurve:
                 Parameters:
                         poc (list): [poc_x, poc_y] in meters
                         spring_constant (float): in N/m
-                
+
                 Returns: None
         """
         for _, segment in self.get_segments():

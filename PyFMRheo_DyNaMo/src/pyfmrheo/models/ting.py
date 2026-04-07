@@ -11,7 +11,7 @@ class TingModel:
         self.ind_geom = ind_geom         # No units
         self.tip_parameter = tip_param   # If radius units is meters, If half angle units is degrees
         self.modelFt = modelFt
-        self.fit_method = 'leastsq'
+        self.fit_method = 'leastsq' #leastsq is the default, Least-Squares minimization, using Trust Region Reflective method
         # Compiutation params
         self.fit_hline_flag = False
         self.apply_bec_flag = False
@@ -19,7 +19,7 @@ class TingModel:
         # Model params #####################
         self.n_params = None
         # Scaling time
-        self.t0 = 0
+        self.t0 = 1
         # Apparent Young's Modulus
         self.E0 = 1000
         self.E0_init = 1000

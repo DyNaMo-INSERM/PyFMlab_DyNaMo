@@ -3,7 +3,7 @@ from pyqtgraph.Qt import QtWidgets, QtCore, QtGui
 from pyqtgraph import TableWidget
 
 from pyfmgui.threading import Worker
-from pyfmgui.export import result_types, prepare_export_results, export_results
+from pyfmgui.export import result_types, prepare_export_results, export_results, export_to_tiff
 
 class ExportDialog(QtWidgets.QWidget):
     def __init__(self, session, parent=None):
@@ -16,11 +16,14 @@ class ExportDialog(QtWidgets.QWidget):
         self.results = None
 
         self.exportButton = QtWidgets.QPushButton()
-        self.exportButton.setText('Export All Results')
+        self.exportButton.setText('Export to CSV')
+        self.exportTiffButton = QtWidgets.QPushButton()
+        self.exportTiffButton.setText('Export to TIFF')
         self.updateButton = QtWidgets.QPushButton()
         self.updateButton.setText('Update Table')
         
         self.exportButton.clicked.connect(self.doexport)
+        self.exportTiffButton.clicked.connect(self.get_df_for_tiff)
         self.updateButton.clicked.connect(self.get_results)
 
         self.table_preview = TableWidget(editable=False, sortable=True)
@@ -50,14 +53,16 @@ class ExportDialog(QtWidgets.QWidget):
         self.layout_2 = QtWidgets.QHBoxLayout()
         self.layout_2.addWidget(self.updateButton)
         self.layout_2.addWidget(self.exportButton)
+        self.layout_2.addWidget(self.exportTiffButton)
+
 
         gridlayout.addWidget(self.file_prefix_label, 0, 0, 1, 1)
-        gridlayout.addWidget(self.file_prefix_text, 0, 1, 1, 2)
+        gridlayout.addWidget(self.file_prefix_text, 0, 1, 1, 3)
         gridlayout.addWidget(self.save_folder_label, 1, 0, 1, 1)
-        gridlayout.addWidget(self.save_folder_text, 1, 1, 1, 2)
-        gridlayout.addWidget(self.save_folder_bttn, 2, 2, 1, 1)
+        gridlayout.addWidget(self.save_folder_text, 1, 1, 1, 3)
+        gridlayout.addWidget(self.save_folder_bttn, 2, 2, 1, 2)
         gridlayout.addWidget(self.results_cb, 3, 0, 1, 2)
-        gridlayout.addLayout(self.layout_2, 3, 2, 1, 1)
+        gridlayout.addLayout(self.layout_2, 3, 2, 1, 2)
 
         self.layout.addLayout(gridlayout)
         self.layout.addWidget(self.table_preview)
@@ -132,3 +137,27 @@ class ExportDialog(QtWidgets.QWidget):
             self.open_msg_box("Please provide a directory!")
         elif self.file_prefix == "":
             self.open_msg_box("Please provide a file prefix!")
+            
+    def get_df_for_tiff(self):
+        self.file_prefix = self.file_prefix_text.toPlainText()
+
+        result_key = self.results_cb.currentText()
+        self.results = self.session.prepared_results
+        if result_key not in ['hertz_results','ting_results']:
+            # self.table_preview.clear()
+            self.open_msg_box("Export to TIFF not possible yet")
+        else:
+            df_res = self.results[result_key]
+            success_flag = export_to_tiff(df_res, self.dirname, self.file_prefix, result_key)
+            if success_flag:
+                self.open_msg_box("TIFF export was successful!")
+            else:
+                self.open_msg_box("No results were found to export!")
+
+    
+
+    def open_msg_box_test_tiff(self):
+        dlg = QtWidgets.QMessageBox(self)
+        dlg.setWindowTitle("Tiff Test Window")
+        dlg.setText("Tiff Test Window")
+        dlg.exec()

@@ -35,7 +35,7 @@ def parseJPKheader(filepath, header_properties, shared_data_properties, filesuff
         file_metadata["file_id"] = file_id.group(1)
     else:
         # If the file has been renamed, then assign the file id to be the file name.
-        file_metadata["file_id"] = file_metadata["file_name"]
+        file_metadata["file_id"] = file_metadata["Entry_filename"]
 
     if file_metadata["file_type"] == "jpk-force-map":
         prefix = "force-scan-map"
@@ -45,6 +45,10 @@ def parseJPKheader(filepath, header_properties, shared_data_properties, filesuff
         prefix = "quantitative-imaging-map"
         file_metadata['force_volume'] = 1
         pre_header = ".settings"
+    elif file_metadata["file_type"] == "jpk-qi-series":
+        prefix = "quantitative-imaging-series"
+        file_metadata['force_volume'] = 0
+        pre_header = ".header"
     elif file_metadata["file_type"] == "jpk-force":
         prefix = "force-scan-series"
         pre_header = ".header"
@@ -142,7 +146,7 @@ def parseJPKheader(filepath, header_properties, shared_data_properties, filesuff
                              the default values of dlection sentivity = {multiplier_default} and K = {multiplier_default} have been assigned!")
 
         
-        elif channel_name in ("capacitiveSensorHeight", "measuredHeight", "height", "cellhesion-height", "strainGaugeHeight"):
+        elif channel_name in ("capacitiveSensorHeight", "measuredHeight", "height", "cellhesion-height", "strainGaugeHeight","head-height"):
             properties["encoder_type"] = shared_data_properties.get(pre + ".encoder.type")
             properties["encoder_offet_key"] = float(shared_data_properties.get(pre + ".encoder.scaling.offset", offset_default))
             properties["encoder_multiplier_key"] = float(shared_data_properties.get(pre + ".encoder.scaling.multiplier", scaling_factor))
@@ -218,7 +222,7 @@ def parseJPKsegmentheader(curve_properties, curve_index, file_type, segment_head
         segment_metadata["baseline_measured"] = False
     segment_metadata["baseline"] = float(segment_header.get("force-segment-header.baseline.baseline", offset_default))
 
-    if file_type == "jpk-force":
+    if file_type in ("jpk-force", "jpk-qi-series"):
         segment_metadata["approach_id"] = segment_header.get("force-segment-header.approach-id")
         segment_metadata["style"] = segment_header.get("force-segment-header.settings.style")
 

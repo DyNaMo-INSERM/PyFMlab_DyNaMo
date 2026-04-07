@@ -161,7 +161,7 @@ class PiezoCharWidget(QtWidgets.QWidget):
                     curve_coords = np.asarray([row[::(-1)**i] for i, row in enumerate(curve_coords)])
                     
                 curve_coords = np.rot90(np.fliplr(curve_coords))
-            elif self.session.current_file.filemetadata['file_type'] in cts.nanoscope_file_extensions:
+            elif self.session.current_file.filemetadata['file_type'] in cts.nanoscope_file_extensions+cts.asylum_file_extensions:
                 img = self.session.current_file.piezoimg
                 img = np.rot90(np.fliplr(img))
 
@@ -169,6 +169,17 @@ class PiezoCharWidget(QtWidgets.QWidget):
                 rows, cols = shape[0], shape[1]
                 curve_coords = np.arange(cols*rows).reshape((cols, rows))
                 curve_coords = np.rot90(np.fliplr(curve_coords))
+            elif self.session.current_file.filemetadata['file_type'] in cts.jpk_h5_file:
+                #img = self.session.current_file.piezoimg
+                img = self.session.current_file.imagedata['CombinedHeightMeasured']
+                img = np.rot90(np.fliplr(img))
+
+                self.plotItem.setTitle("test Height (μm)")
+                shape = img.shape
+                rows, cols = shape[0], shape[1]
+                curve_coords = self.session.current_file.imagedata['coordinate']
+                curve_coords = np.rot90(np.fliplr(curve_coords))
+                curve_coords = curve_coords
 
             self.correlogram.setImage(img)
             shape = img.shape

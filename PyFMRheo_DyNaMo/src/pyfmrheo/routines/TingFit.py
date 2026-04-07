@@ -7,7 +7,7 @@ from ..models.ting import TingModel
 
 def doTingFit(fdc, param_dict):
     # Get data from the first extend segments and last retract segment
-    ext_data = fdc.extend_segments[0][1]
+    ext_data = fdc.extend_segments[-1][1]
     ret_data = fdc.retract_segments[-1][1]
     # Perform tilt correction
     height = np.r_[ext_data.zheight, ret_data.zheight]
@@ -108,8 +108,9 @@ def doTingFit(fdc, param_dict):
     else:
         F0_init=force_fit[f0idx]
     # Compute bounds for tc and F0
-    tc_max = tc_fit+downfactor/(1/(time_fit[1]-time_fit[0]))*10
-    tc_min = tc_fit-downfactor/(1/(time_fit[1]-time_fit[0]))*10
+    #setting the duration of the force curve of maximum time of contact
+    tc_max = np.max(time_fit)
+    tc_min = -tc_max
     f0_max = F0_init+100e-12
     f0_min = F0_init-100e-12
     # Set params for betaE

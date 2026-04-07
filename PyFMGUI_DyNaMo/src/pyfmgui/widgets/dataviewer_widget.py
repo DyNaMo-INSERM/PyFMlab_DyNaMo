@@ -119,7 +119,7 @@ class DataViewerWidget(QtWidgets.QWidget):
         t0 = 0
         fc_segments = force_curve.get_segments()
         n_segments = len(fc_segments)
-        ext_data = force_curve.extend_segments[0][1]
+        ext_data = force_curve.extend_segments[-1][1]
         ret_data = force_curve.retract_segments[-1][1]
         t_offset = np.abs(ext_data.zheight[-1] - ret_data.zheight[0]) / (ext_data.velocity * -1e-9)
         dt = np.abs(ext_data.time[1] - ext_data.time[0])
@@ -139,7 +139,7 @@ class DataViewerWidget(QtWidgets.QWidget):
         self.p1.setTitle(f"{ykey}-{xkey}")
     
     def updateCurve(self):
-        idx = self.session.current_curve_index
+        idx = int(self.session.current_curve_index)
         height_channel = self.session.current_file.filemetadata['height_channel_key']
         if self.session.global_involts is None:
             deflection_sens = self.session.current_file.filemetadata['defl_sens_nmbyV'] / 1e9
@@ -184,7 +184,7 @@ class DataViewerWidget(QtWidgets.QWidget):
                 if self.session.current_file.filemetadata['file_type'] == "jpk-force-map":
                     curve_coords = np.asarray([row[::(-1)**i] for i, row in enumerate(curve_coords)])
                 curve_coords = np.rot90(np.fliplr(curve_coords))
-            elif self.session.current_file.filemetadata['file_type'] in cts.nanoscope_file_extensions:
+            elif self.session.current_file.filemetadata['file_type'] in cts.nanoscope_file_extensions+cts.asylum_file_extensions:
                 img = self.session.current_file.piezoimg
                 img = np.rot90(np.fliplr(img))
 
@@ -194,12 +194,26 @@ class DataViewerWidget(QtWidgets.QWidget):
                 curve_coords = np.arange(cols*rows).reshape((cols, rows))
                 curve_coords = np.rot90(np.fliplr(curve_coords))
 
+            elif self.session.current_file.filemetadata['file_type'] in cts.jpk_h5_file:
+                #img = self.session.current_file.piezoimg
+                img = self.session.current_file.imagedata['CombinedHeightMeasured']
+                img = np.rot90(np.fliplr(img))
+                self.plotItem.setTitle("test Height (μm)")
+                shape = img.shape
+                rows, cols = shape[0], shape[1]
+                curve_coords = self.session.current_file.imagedata['coordinate']
+                                #curve_coords = curve_coords
+                curve_coords = np.rot90(np.fliplr(curve_coords))
+
+                curve_coords = curve_coords
+
+
             self.correlogram.setImage(img * 1e6)
             colorMap = pg.colormap.get('afmhot', source='matplotlib', skipCache=True)     # choose perceptually uniform, diverging color map
 
             self.correlogram.setColorMap(colorMap)
 
-            self.bar.setLevels((img.min() * 1e6, img.max() * 1e6))
+            self.bar.setLevels((np.nanmin(img) * 1e6, np.nanmax(img) * 1e6))
             self.plotItem.setXRange(0, cols)
             self.plotItem.setYRange(0, rows)
 

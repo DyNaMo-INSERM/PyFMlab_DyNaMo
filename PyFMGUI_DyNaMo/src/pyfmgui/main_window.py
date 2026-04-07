@@ -209,16 +209,17 @@ class MainWindow(QtWidgets.QMainWindow):
 				r'./', 
 				"""
 				JPK files (*.jpk-force *.jpk-force-map *.jpk-qi-data *.jpk-force.zip *.jpk-force-map.zip *.jpk-qi-data.zip);;
+				JPK NW5 files (*.h5-jpk);;
 				Nanoscope files (*.spm *.pfc);;
 				PARK files (*.tiff);;
+    			PSNEX files (*.tdms );;
+				Asylum Research files (*.ARDF);;
+				Asylum Research files (*.ibw)
 
-    				PSNEX files (*.tdms )
 
 				"""
 			)
 			if fname != "" and fname is not None:
-                
-				print(fname)
 				self.load_files([fname])
 		elif q.text() == "Load Folder":
 			dirname = QtWidgets.QFileDialog.getExistingDirectory(
@@ -236,7 +237,7 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.remove_all_files_and_results()
 	
 	def getFileList(self, directory):
-		types = ('*.jpk-force', '*.jpk-force-map', '*.jpk-qi-data', '*.jpk-force.zip', '*.jpk-force-map.zip', '*.jpk-qi-data.zip', '*.spm', '*.pfc','*.tdms','*.tiff')
+		types = ('*.jpk-force', '*.jpk-force-map', '*.jpk-qi-data', '*.jpk-force.zip', '*.jpk-force-map.zip', '*.jpk-qi-data.zip','*.h5-jpk', '*.spm', '*.pfc','*.tdms','*.tiff','*.ARDF','*.ibw')
 		dataset_files = []
 		for files in types:
 			dataset_files.extend(glob.glob(f'{directory}/**/{files}', recursive=True))
