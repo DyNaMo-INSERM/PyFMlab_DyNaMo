@@ -16,7 +16,10 @@ from nptdms import TdmsFile
 from ..utils.forcecurve import ForceCurve
 from ..utils.segment import Segment
 
- 
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 #from pyfmreader.utils.forcecurve import ForceCurve
 #from pyfmreader.utils.segment import Segment
 
@@ -102,6 +105,10 @@ def loadPSNEXcurve(file_metadata,curve_index = 0,
     tick_sampling_rate_time_s = dec_seg / seg_sampling_rate
     # z_sensor_delay = 1e-3;bool_correct_overshoot = True
     # print (f"z_sensor_delay: {z_sensor_delay}, bool_correct_overshoot: {bool_correct_overshoot} ")
+    # After: end_indices[-1] = length_deflection
+
+
+    
 
     num_pts_rm = int(z_sensor_delay/tick_sampling_rate_time_s[0])
     # num_pts_rm = 1
@@ -140,6 +147,27 @@ def loadPSNEXcurve(file_metadata,curve_index = 0,
 
     start_indices = np.concatenate(([0], np.cumsum(sizes_seg[:-1])))
     end_indices = start_indices + sizes_seg
+
+
+        # VALIDATION: Check segment sizes are reasonable
+    for idx, (size, start, end) in enumerate(zip(sizes_seg, start_indices, end_indices)):
+        actual_size = end - start
+        if actual_size == 0:
+            logger.error(
+                f"Segment {idx} has 0 data points! "
+                f"start_indices={start}, end_indices={end}. "
+                f"S values: {sizes_seg}, rel_SR: {relative_segment_sampling_rate}, "
+                f"deflection length: {length_deflection}"
+            )
+            raise ValueError(
+                f"Segment {idx} is empty. HS3 file may have corrupted or malformed metadata. "
+                f"Please verify S1, S2, S3, S4, S5, and Reading Sample Rate in .dat file."
+            )
+        elif actual_size < 10:
+            logger.warning(
+                f"Segment {idx} has only {actual_size} points. "
+                f"This may cause analysis to fail."
+            )
 
 
 

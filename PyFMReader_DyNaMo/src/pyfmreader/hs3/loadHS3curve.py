@@ -143,8 +143,8 @@ def loadHS3curve(file_metadata,curve_index = 0):
     
         # segment.force_setpoint = segment.segment_metadata[f"segment_{segment_id}_setpoint_(V)"]
         segment.velocity = -calculate_velocity(segment_formated_data['Piezo'], segment_formated_data["time"])
-        segment.zheight = segment_formated_data['Piezo'][-1]  # Last value of the piezo displacement
-        segment.vdeflection = segment_formated_data['vDeflection'][-1]  # Last value of the deflection
+        segment.zheight = segment_formated_data['Piezo']  # Last value of the piezo displacement
+        segment.vdeflection = segment_formated_data['vDeflection']  # Last value of the deflection
         segment.sampling_rate = rel_SR[idx]
         segment.z_displacement = height[-1]
         segment.force = deflection[start_pos:end_pos] * file_metadata['defl_sens_nmbyV'] * 1e-09 * file_metadata['spring_const_Nbym']  # Convert to m 

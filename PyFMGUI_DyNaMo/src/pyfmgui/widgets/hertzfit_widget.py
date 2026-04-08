@@ -320,12 +320,16 @@ class HertzFitWidget(QtWidgets.QWidget):
 
         comp_PoC = [0, 0]
 
-        if poc_method == 'RoV':
-            comp_PoC = get_poc_RoV_method(
-                self.seg_data.zheight, self.seg_data.vdeflection, poc_win)
-        else:
-            comp_PoC = get_poc_regulaFalsi_method(
-                self.seg_data.zheight, self.seg_data.vdeflection, poc_sigma)
+        try:
+            if poc_method == 'RoV':
+                comp_PoC = get_poc_RoV_method(
+                    self.seg_data.zheight, self.seg_data.vdeflection, poc_win)
+            else:
+                comp_PoC = get_poc_regulaFalsi_method(
+                    self.seg_data.zheight, self.seg_data.vdeflection, poc_sigma)
+        except Exception as e:
+            logger.warning(f'Failed to compute PoC ({poc_method}): {str(e)}. Using default PoC [0, 0]')
+            comp_PoC = [0, 0]
 
         if comp_PoC is not None:
             poc = [comp_PoC[0], 0]

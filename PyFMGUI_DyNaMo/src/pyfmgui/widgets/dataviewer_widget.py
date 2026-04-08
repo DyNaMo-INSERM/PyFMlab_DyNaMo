@@ -112,6 +112,10 @@ class DataViewerWidget(QtWidgets.QWidget):
         pass
     
     def make_plot(self, force_curve):
+        # Safety check - ensure p1 has been initialized
+        if not hasattr(self, 'p1'):
+            return
+            
         self.p1.clear()
         self.p1.showGrid(x=True, y=True)
         self.p1.enableAutoRange()
@@ -160,21 +164,24 @@ class DataViewerWidget(QtWidgets.QWidget):
         self.p1.setTitle(f"{ykey}-{xkey}")
     
     def updateCurve(self):
-        if self.session.current_file is not None:
-            # z_sensor_delay = self.params.child('Display Options').child('Z Sensor Delay').value()
-            # bool_correct_overshoot = self.params.child('Display Options').child('Correct Overshoot').value()
+        # Ensure GUI is properly initialized before proceeding
+        if not hasattr(self, 'p1') or self.session.current_file is None:
+            return
+            
+        # z_sensor_delay = self.params.child('Display Options').child('Z Sensor Delay').value()
+        # bool_correct_overshoot = self.params.child('Display Options').child('Correct Overshoot').value()
 
-            idx = self.session.current_curve_index
-            height_channel = self.session.current_file.filemetadata['height_channel_key']
-            if self.session.global_involts is None:
-                deflection_sens = self.session.current_file.filemetadata['defl_sens_nmbyV'] / 1e9
-            else:
-                deflection_sens = self.session.global_involts
-            force_curve = self.session.current_file.getcurve(idx, bool_correct_overshoot = self.correct_app.value())
-            force_curve.preprocess_force_curve(deflection_sens, height_channel)
-            if self.session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
-                force_curve.shift_height()
-            self.make_plot(force_curve)
+        idx = self.session.current_curve_index
+        height_channel = self.session.current_file.filemetadata['height_channel_key']
+        if self.session.global_involts is None:
+            deflection_sens = self.session.current_file.filemetadata['defl_sens_nmbyV'] / 1e9
+        else:
+            deflection_sens = self.session.global_involts
+        force_curve = self.session.current_file.getcurve(idx, bool_correct_overshoot = self.correct_app.value())
+        force_curve.preprocess_force_curve(deflection_sens, height_channel)
+        if self.session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
+            force_curve.shift_height()
+        self.make_plot(force_curve)
     
     def updatePlots(self, item=None):
         if item is not None:
