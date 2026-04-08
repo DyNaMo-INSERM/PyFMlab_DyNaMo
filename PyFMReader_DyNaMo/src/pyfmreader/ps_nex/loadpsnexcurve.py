@@ -52,7 +52,7 @@ def loadPSNEXcurve(file_metadata,curve_index = 0,
     num_segment_arr = np.arange(0,num_segments,1)
 
     if bool_correct_overshoot:
-        print("Correcting overshoot in the approach segment")
+        # print("Correcting overshoot in the approach segment")
         if len(num_segment_arr) > 2:
             first = num_segment_arr[0]
             last = num_segment_arr[-1]

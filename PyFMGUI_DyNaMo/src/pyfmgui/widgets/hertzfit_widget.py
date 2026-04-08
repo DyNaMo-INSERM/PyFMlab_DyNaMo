@@ -479,8 +479,9 @@ class HertzFitWidget(QtWidgets.QWidget):
             analysis_params.child('Deflection Sensitivity').setValue(
                 self.current_file.filemetadata['defl_sens_nmbyV'])
         else:
+            # session.global_involts is in m/V, but parameter displays nm/V
             analysis_params.child('Deflection Sensitivity').setValue(
-                self.session.global_involts)
+                self.session.global_involts * 1e9)
 
         analysis_params.child(
             'Correct Tilt').sigValueChanged.connect(self.updatePlots)

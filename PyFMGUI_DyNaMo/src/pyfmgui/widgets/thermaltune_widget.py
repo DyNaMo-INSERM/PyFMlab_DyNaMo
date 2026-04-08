@@ -21,13 +21,13 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         self.session = session
         self.session.thermal_tune_widget = self
         
-        # Lists to store multiple files
-        self.air_files_data = []  # List of (filename, ampl, freq, fit_data, params)
-        self.liquid_files_data = []  # List of (filename, ampl, freq, fit_data, params)
+        # Lists to store multiple files - restore from session if available
+        self.air_files_data = self.session.thermal_tune_air_files_data.copy() if self.session.thermal_tune_air_files_data else []
+        self.liquid_files_data = self.session.thermal_tune_liquid_files_data.copy() if self.session.thermal_tune_liquid_files_data else []
         
-        # Dictionaries to store fitted results per file (filename -> fit_results)
-        self.air_fit_results = {}  # {filename: {freq_fit, thermal_fit, k0, GCI, invols, invols_h}}
-        self.liquid_fit_results = {}  # {filename: {freq_fit, thermal_fit, k0, GCI, invols, invols_h}}
+        # Dictionaries to store fitted results per file - restore from session if available
+        self.air_fit_results = self.session.thermal_tune_air_fit_results.copy() if self.session.thermal_tune_air_fit_results else {}
+        self.liquid_fit_results = self.session.thermal_tune_liquid_fit_results.copy() if self.session.thermal_tune_liquid_fit_results else {}
         
         # Current selected data (for backward compatibility)
         self.inliquid_thermal_ampl = None
@@ -52,12 +52,15 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         self.filename = None
         self.init_gui()
         
+        # Restore UI elements from saved data
+        self._restore_ui_from_session_data()
+        
         # Try to login, but don't block if it fails
-        try:
-            self.sader_login()
-        except Exception as e:
-            print(f"Warning: Could not auto-login to SADER: {e}")
-            print("You can manually login using the Login button")
+        # try:
+        #     self.sader_login()
+        # except Exception as e:
+        #     print(f"Warning: Could not auto-login to SADER: {e}")
+        #     print("You can manually login using the Login button")
 
     def init_gui(self):
         main_layout = QtWidgets.QHBoxLayout()
@@ -199,6 +202,30 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         main_layout.addLayout(params_layout, 1)
         main_layout.addWidget(self.l, 3)
 
+    def _restore_ui_from_session_data(self):
+        """Restore UI elements (dropdowns) from previously saved session data"""
+        # Restore air file dropdown
+        if self.air_files_data:
+            for fname, ampl, freq, fit_data, params in self.air_files_data:
+                if fname not in [self.air_file_selector.itemText(i) for i in range(self.air_file_selector.count())]:
+                    self.air_file_selector.addItem(fname)
+            # Select the last file
+            if self.air_files_data:
+                last_file = self.air_files_data[-1][0]
+                self.air_file_selector.setCurrentText(last_file)
+                self.on_air_file_selected(0)  # Trigger update
+        
+        # Restore liquid file dropdown
+        if self.liquid_files_data:
+            for fname, ampl, freq, fit_data, params in self.liquid_files_data:
+                if fname not in [self.lq_file_selector.itemText(i) for i in range(self.lq_file_selector.count())]:
+                    self.lq_file_selector.addItem(fname)
+            # Select the last file
+            if self.liquid_files_data:
+                last_file = self.liquid_files_data[-1][0]
+                self.lq_file_selector.setCurrentText(last_file)
+                self.on_liquid_file_selected(0)  # Trigger update
+
     def read_afm_data(self, file_path):
         """Read thermal data from .dat file (custom format)"""
         file_ext = os.path.splitext(file_path)[1]
@@ -233,6 +260,11 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         return amplitude, frequencies, fit_data, parameters
 
     def closeEvent(self, evnt):
+        # Save working data to session before closing
+        self.session.thermal_tune_air_files_data = self.air_files_data.copy() if self.air_files_data else []
+        self.session.thermal_tune_liquid_files_data = self.liquid_files_data.copy() if self.liquid_files_data else []
+        self.session.thermal_tune_air_fit_results = self.air_fit_results.copy() if self.air_fit_results else {}
+        self.session.thermal_tune_liquid_fit_results = self.liquid_fit_results.copy() if self.liquid_fit_results else {}
         self.session.thermal_tune_widget = None
     
     def air_dragEnterEvent(self, event):
@@ -691,7 +723,6 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         self.p1.setLabel('left', 'Amplitude (pm^2/V)')
         self.p1.setLabel('bottom', 'Frequency', 'Hz')
         self.p1.setLogMode(True, True)
-        self.p1.addLegend()
 
         self.l.addItem(self.p1)
     
@@ -716,8 +747,26 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         <operation>LIST</operation>
         </saderrequest>'''
         headers = {'user-agent': cts.SADER_API_version, 'Content-type': cts.SADER_API_type}
-        r = requests.post(cts.SADER_API_url, data=payload, headers=headers)
-        doc = etree.fromstring(r.content)
+        
+        try:
+            r = requests.post(cts.SADER_API_url, data=payload, headers=headers, timeout=5)
+            r.raise_for_status()  # Raise exception for bad status codes
+            
+            # Check if response is empty
+            if not r.content or not r.content.strip():
+                print("SADER API returned empty response")
+                return {}
+            
+            doc = etree.fromstring(r.content)
+        except requests.exceptions.RequestException as e:
+            print(f"SADER API request error: {e}")
+            return {}
+        except etree.ParseError as e:
+            print(f"SADER API XML parse error: {e}")
+            return {}
+        except Exception as e:
+            print(f"SADER API unexpected error: {e}")
+            return {}
         
         cantilever_ids = doc.findall('./cantilevers/cantilever/id')
         cantilever_labels = doc.findall('./cantilevers/cantilever/label')
@@ -743,12 +792,13 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         try:
             self.sader_canti_list = self.SaderGCI_GetLeverList()
             if self.sader_canti_list == {}:
-                self.open_msg_box("Could not Login!")
+                self.open_msg_box("Could not Login! Please check your credentials and internet connection.")
                 return
             self.params.child('Calibration Params').child('Cantilever Code').setLimits(list(self.sader_canti_list.keys()))
             self.open_msg_box("Login was successful!")
-        except requests.exceptions.RequestException:
-            self.open_msg_box("Could not Login!")
+        except Exception as e:
+            print(f"Error during SADER login: {e}")
+            self.open_msg_box("Could not Login! Please check your credentials and internet connection.")
     
     def do_thermalfit(self):
         # Change to the routines present in PyFMRheo
@@ -895,8 +945,9 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             self.air_invols_edit.setToolTip("Deflection sensitivity in nm/V")
             
             self.air_gci_edit = QtWidgets.QLineEdit()
-            self.air_gci_edit.setText(f"{self.GCI_cant_springConst_air:.6f}")
-            self.air_gci_edit.setToolTip("GCI spring constant in N/m")
+            gci_air_text = "N/A" if (isinstance(self.GCI_cant_springConst_air, float) and self.GCI_cant_springConst_air != self.GCI_cant_springConst_air) else f"{self.GCI_cant_springConst_air:.6f}"
+            self.air_gci_edit.setText(gci_air_text)
+            self.air_gci_edit.setToolTip("GCI spring constant in N/m (may be unavailable if SADER request fails)")
             
             self.air_invols_h_edit = QtWidgets.QLineEdit()
             self.air_invols_h_edit.setText(f"{self.invOLS_H_air*1e9:.6f}")
@@ -928,8 +979,9 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             self.lq_invols_edit.setToolTip("Deflection sensitivity in nm/V")
             
             self.lq_gci_edit = QtWidgets.QLineEdit()
-            self.lq_gci_edit.setText(f"{self.GCI_cant_springConst_lq:.6f}")
-            self.lq_gci_edit.setToolTip("GCI spring constant in N/m")
+            gci_lq_text = "N/A" if (isinstance(self.GCI_cant_springConst_lq, float) and self.GCI_cant_springConst_lq != self.GCI_cant_springConst_lq) else f"{self.GCI_cant_springConst_lq:.6f}"
+            self.lq_gci_edit.setText(gci_lq_text)
+            self.lq_gci_edit.setToolTip("GCI spring constant in N/m (may be unavailable if SADER request fails)")
             
             self.lq_invols_h_edit = QtWidgets.QLineEdit()
             self.lq_invols_h_edit.setText(f"{self.invOLS_H_lq*1e9:.6f}")
@@ -969,16 +1021,22 @@ class ThermalTuneWidget(QtWidgets.QWidget):
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             # Get edited values from UI
             try:
+                def convert_value(text):
+                    """Convert text to float, handling N/A as NaN"""
+                    if text.upper() == "N/A":
+                        return float('nan')
+                    return float(text)
+                
                 if air_has_data:
                     self.k0_air = float(self.air_k0_edit.text())
                     self.involsValue_air = float(self.air_invols_edit.text()) / 1e9
-                    self.GCI_cant_springConst_air = float(self.air_gci_edit.text())
+                    self.GCI_cant_springConst_air = convert_value(self.air_gci_edit.text())
                     self.invOLS_H_air = float(self.air_invols_h_edit.text()) / 1e9
                 
                 if liquid_has_data:
                     self.k0_lq = float(self.lq_k0_edit.text())
                     self.involsValue_lq = float(self.lq_invols_edit.text()) / 1e9
-                    self.GCI_cant_springConst_lq = float(self.lq_gci_edit.text())
+                    self.GCI_cant_springConst_lq = convert_value(self.lq_gci_edit.text())
                     self.invOLS_H_lq = float(self.lq_invols_h_edit.text()) / 1e9
                 
                 # Determine which values to apply
@@ -1030,7 +1088,7 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             
             # Notify other widgets if they're open
             if self.session.data_viewer_widget:
-                self.session.data_viewer_widget.update_plot()
+                self.session.data_viewer_widget.updatePlots()
         else:
             self.open_msg_box("Error: Air calibration data not available.\nPlease compute air calibration first.")
     
@@ -1069,7 +1127,7 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             
             # Notify other widgets if they're open
             if self.session.data_viewer_widget:
-                self.session.data_viewer_widget.update_plot()
+                self.session.data_viewer_widget.updatePlots()
         else:
             self.open_msg_box("Error: Liquid calibration data not available.\nPlease compute liquid calibration first.")
     
@@ -1122,7 +1180,7 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             
             # Notify other widgets if they're open
             if self.session.data_viewer_widget:
-                self.session.data_viewer_widget.update_plot()
+                self.session.data_viewer_widget.updatePlots()
         else:
             self.open_msg_box("Error: Air calibration data not available.\nPlease compute air calibration first.")
     
@@ -1151,9 +1209,16 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             
             print("Calibration reset: global_k and global_involts cleared")
             
-            # Notify other widgets if they're open
-            if self.session.data_viewer_widget:
-                self.session.data_viewer_widget.updateCurve()
+            # # Notify other widgets if they're open
+            # if self.session.data_viewer_widget:
+            #     self.session.data_viewer_widget.updateCurve()
+
+            if self.session.data_viewer_widget and self.session.data_viewer_widget is not None:
+                try:
+                    self.session.data_viewer_widget.updateCurve()
+                except Exception as e:
+                    print(f"Warning: Could not update data viewer: {e}")
+            
     
     def save_results_to_png(self):
         """Save the current plot as PNG file"""

@@ -398,4 +398,5 @@ class VDragWidget(QtWidgets.QWidget):
         if self.session.global_involts is None:
             analysis_params.child('Deflection Sensitivity').setValue(self.current_file.filemetadata['defl_sens_nmbyV'])
         else:
-            analysis_params.child('Deflection Sensitivity').setValue(self.session.global_involts)
+            # session.global_involts is in m/V, but parameter displays nm/V
+            analysis_params.child('Deflection Sensitivity').setValue(self.session.global_involts * 1e9)

@@ -8,6 +8,11 @@ class Session:
         self.piezo_char_results = {}
         self.vdrag_results = {}
         self.microrheo_results = {}
+        # Thermal tune working data - persists across widget close/open
+        self.thermal_tune_air_files_data = []
+        self.thermal_tune_liquid_files_data = []
+        self.thermal_tune_air_fit_results = {}
+        self.thermal_tune_liquid_fit_results = {}
         self.current_file=None
         self.map_coords = None
         self.current_curve_index=None
@@ -58,6 +63,10 @@ class Session:
         self.ting_fit_results = {}
         self.piezo_char_results = {}
         self.vdrag_results = {}
+        self.thermal_tune_air_files_data = []
+        self.thermal_tune_liquid_files_data = []
+        self.thermal_tune_air_fit_results = {}
+        self.thermal_tune_liquid_fit_results = {}
         self.microrheo_results = {}
     
     def remove_data_and_results(self):

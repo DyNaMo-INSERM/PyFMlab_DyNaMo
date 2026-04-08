@@ -283,7 +283,7 @@ class CantileverParams(pTypes.GroupParameter):
             {'name': 'Length', 'type': 'float', 'value': 0, 'units':'um'},
             {'name': 'Width', 'type': 'float', 'value': 0, 'units':'um'},
             {'name': 'Width Legs', 'type': 'float', 'value': 0, 'units':'um'},
-            {'name': 'nominal k', 'type': 'float', 'value': 0, 'units':'pN/nm'}
+            {'name': 'nominal k', 'type': 'float', 'value': 0, 'units':'N/m'}
         ])
 
         self.cani_id = self.param('Canti Id')
