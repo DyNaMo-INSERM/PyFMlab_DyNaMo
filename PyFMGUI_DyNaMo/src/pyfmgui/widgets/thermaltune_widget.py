@@ -829,6 +829,9 @@ class ThermalTuneWidget(QtWidgets.QWidget):
                     self.cantType, username = self.session.sader_username,
                     password = self.session.sader_password, selectedCantCode = self.selectedCantCode
                 )
+# here apply the spring constant after calculation
+            canti_params = self.params.child('Cantilever Params')
+            canti_params.child('nominal k').setValue(float(self.k0_air))
             
             # Save fit results and ROI region for this file
             if self.filename:
