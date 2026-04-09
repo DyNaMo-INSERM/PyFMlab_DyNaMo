@@ -1,3 +1,4 @@
+import os
 import PyQt5
 from pyqtgraph.Qt import QtWidgets, QtCore, QtGui
 from pyqtgraph import TableWidget
@@ -72,8 +73,9 @@ class ExportDialog(QtWidgets.QWidget):
         self.get_results()
 
     def get_save_folder(self):
-        dirname = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Save Directory')
+        dirname = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Save Directory', self.session.last_browsed_paths['export_dir'])
         if dirname != "" and dirname is not None:
+            self.session.last_browsed_paths['export_dir'] = dirname
             self.dirname = dirname
             self.save_folder_text.setText(self.dirname)
     

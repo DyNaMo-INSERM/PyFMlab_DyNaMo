@@ -1,0 +1,19 @@
+{
+    // VS Code launch configurations for debugging the PyFMGUI main GUI
+    // Run the configuration: 'Launch PyFMGUI Main'
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch PyFMGUI Main",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/PyFMGUI_DyNaMo/src/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/PyFMGUI_DyNaMo/src",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/PyFMGUI_DyNaMo/src"
+            },
+            "justMyCode": false
+        }
+    ]
+}

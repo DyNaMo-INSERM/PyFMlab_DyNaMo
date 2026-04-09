@@ -45,6 +45,15 @@ class TingFitWidget(QtWidgets.QWidget):
         self.paramTree = ParameterTree()
         self.paramTree.setParameters(self.params, showTop=False)
 
+        # Added: Connect Correct App parameter to update if it exists
+        try:
+            self.correct_app = self.params.child('General Options').child('Correct App')
+            self.correct_app.sigValueChanged.connect(self.update)
+        except KeyError:
+            # Correct App parameter may not exist in older configurations
+            logger.debug('Correct App parameter not found in configuration')
+            self.correct_app = None
+
         self.l2 = pg.GraphicsLayoutWidget()
 
         params_layout.addWidget(self.combobox, 1)
@@ -91,6 +100,12 @@ class TingFitWidget(QtWidgets.QWidget):
             filedict = self.session.loaded_files
         else:
             filedict = {self.session.current_file.filemetadata['Entry_filename']:self.session.current_file}
+        # Log if Correct App option is enabled
+        try:
+            if self.params.child('General Options').child('Correct App').value():
+                logger.info('Correct App overshoot correction is enabled')
+        except KeyError:
+            pass  # Parameter may not exist
         params = get_params(self.params, "TingFit")
         # compute(self.session, params,  self.filedict, "TingFit")
         logger.info('Started ViscoelasticityFit...')
@@ -117,7 +132,6 @@ class TingFitWidget(QtWidgets.QWidget):
         # Final resets
         self.pushButton.setEnabled(False) # Prevent user from starting another
         # Update the gui
-        self.updatePlots()
         self.updatePlots()
     
     def changestep(self, step):
@@ -254,7 +268,13 @@ class TingFitWidget(QtWidgets.QWidget):
         pts_downsample = ting_params.child('Downsample Pts.').value()
         correct_tilt_flag = analysis_params.child('Correct Tilt').value()
 
-        force_curve = self.current_file.getcurve(current_curve_indx)
+        # Get the Correct App parameter value for overshoot correction (default False if not found)
+        correct_overshoot = False
+        try:
+            correct_overshoot = self.params.child('General Options').child('Correct App').value()
+        except KeyError:
+            pass  # Parameter may not exist
+        force_curve = self.current_file.getcurve(current_curve_indx, bool_correct_overshoot=correct_overshoot)
         force_curve.preprocess_force_curve(deflection_sens, height_channel)
 
         if self.session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
@@ -436,7 +456,8 @@ class TingFitWidget(QtWidgets.QWidget):
         if self.session.global_involts is None:
             analysis_params.child('Deflection Sensitivity').setValue(self.current_file.filemetadata['defl_sens_nmbyV'])
         else:
-            analysis_params.child('Deflection Sensitivity').setValue(self.session.global_involts)
+            # session.global_involts is in m/V, but parameter displays nm/V
+            analysis_params.child('Deflection Sensitivity').setValue(self.session.global_involts * 1e9)
         
         analysis_params.child('Correct Tilt').sigValueChanged.connect(self.updatePlots)
         analysis_params.child('Offset Type').sigValueChanged.connect(self.updatePlots)

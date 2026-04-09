@@ -71,7 +71,7 @@ def loadfile(filepath):
         instrument = tdms_file['Force Curve'].properties.get("instrument", "")
 
         if 'PSnex' in instrument:
-            print("PSnex is the best")
+            # print("PSnex is the best")
 
             return loadPSNEXfile(filepath, uffobj)
         else:

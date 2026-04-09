@@ -13,6 +13,8 @@ jpk_file_extensions = ('jpk-force', 'jpk-force-map', 'jpk-qi-data','jpk-qi-serie
 nanoscope_file_extensions = ('spm', 'pfc')
 jpk_h5_file = ('h5-jpk','JPK MultiScan Force Map Spectroscopy','JPK MultiScan Force Spectroscopy')                                        # As in 18-08-2025
 asylum_file_extensions = ('ARDF', 'ibw')
+psnex_file_extension = ('psnex', 'tdms','PSNEX.tdms')
+
 
 # ANALYSIS CONSTANTS ##############################################
 available_geometries = ['paraboloid', 'cone', 'pyramid']
@@ -57,6 +59,13 @@ class AnalysisParams(pTypes.GroupParameter):
                 {'name': 'Max Frequency', 'type': 'int', 'value': None, 'units':'Hz'},
                 {'name': 'B Coef', 'type': 'float', 'value': None, 'units':'Ns/m'}
             ])
+
+        # elif self.mode == "tether":
+        #     self.addChildren([
+        #         {'name': 'Tether Length', 'type': 'float', 'value': 0, 'units':'nm'},
+        #         {'name': 'Tether Stiffness', 'type': 'float', 'value': 0, 'units':'pN/nm'},
+        #         {'name': 'Tether Damping', 'type': 'float', 'value': 0, 'units':'pN·s/nm'}
+        #     ])
         
         self.contact_model = self.param('Contact Model')
         self.contact_model.sigValueChanged.connect(self.contact_model_changed)
@@ -178,7 +187,7 @@ class TingFitParams(pTypes.GroupParameter):
             {'name': 'Poly. Order', 'type': 'int', 'value':2},
             {'name': 'Ramp Speed', 'type': 'float', 'value':0, 'units': 'um/s'},
             {'name': 'Model Type', 'type': 'list', 'limits': ['analytical', 'numerical']},
-            {'name': 'Estimate V0t & V0r', 'type': 'bool', 'value': False},
+            {'name': 'Estimate V0t & V0r', 'type': 'bool', 'value': True}, # For psnex, might be better also for the rest. need to check
             {'name': 't0', 'type': 'int', 'value': 1, 'units':'s'},
             {'name': 'Downsample Pts.', 'type': 'int', 'value': 300},
             {'name': 'Fit Line to non contact', 'type': 'bool', 'value':False},
@@ -188,7 +197,7 @@ class TingFitParams(pTypes.GroupParameter):
             {'name': 'Init E0', 'type': 'int', 'value': 1000, 'units':'Pa'},
             {'name': 'Init tc', 'type': 'float', 'value': 0, 'units':'s'},
             {'name': 'Init f0', 'type': 'float', 'value': 0, 'units':'nN'},
-            {'name': 'Viscous Drag', 'type': 'float', 'value': 0, 'units':'pN/nm·s'},
+            {'name': 'Viscous Drag', 'type': 'float', 'value': 0.0003, 'units':'pN/nm·s'}, # Changed default from 0 to 0.0003 For Psnx, might be also good as a default for other purposes. 
             {'name': 'Auto Init  Fluid. Exp.', 'type': 'bool', 'value':True},
             {'name': 'Init Fluid. Exp.', 'type': 'float', 'value': 0.20},
             {'name': 'Contact Offset', 'type': 'float', 'value': 1, 'units':'um'},
@@ -274,7 +283,7 @@ class CantileverParams(pTypes.GroupParameter):
             {'name': 'Length', 'type': 'float', 'value': 0, 'units':'um'},
             {'name': 'Width', 'type': 'float', 'value': 0, 'units':'um'},
             {'name': 'Width Legs', 'type': 'float', 'value': 0, 'units':'um'},
-            {'name': 'nominal k', 'type': 'float', 'value': 0, 'units':'pN/nm'}
+            {'name': 'nominal k', 'type': 'float', 'value': 0, 'units':'N/m'}
         ])
 
         self.cani_id = self.param('Canti Id')
@@ -293,19 +302,38 @@ class CantileverParams(pTypes.GroupParameter):
         else:
             print(f"Error: '{self.cani_id.value()}' not found in canti_list")
             
-            
+# class TetherAnalysisParams(pTypes.GroupParameter):
+#     def __init__(self, **opts):
+#         pTypes.GroupParameter.__init__(self, **opts)
+#         self.addChildren([
+#             {'name': 'Savitzky Window Length', 'type': 'int', 'value': 10, 'limits': [3, 50]},
+#             {'name': 'Savitzky Poly Order', 'type': 'int', 'value': 1, 'limits': [1, 5]},
+#             {'name': 'Plateau Threshold', 'type': 'float', 'value': 150e-9, 'suffix': 'N', 'siPrefix': True},
+#             {'name': 'Min Plateau Width', 'type': 'int', 'value': 2, 'limits': [1, 20]},
+#             {'name': 'Max Plateaus', 'type': 'int', 'value': 7, 'limits': [1, 15]},
+#             {'name': 'Last Plateau Avg (%)', 'type': 'float', 'value': 15, 'limits': [1, 100], 'suffix': '%'},
+#             {'name': 'Z Sensor Delay', 'type': 'float', 'value': 0.001, 'suffix': 's', 'siPrefix': True},
+#             {'name': 'Correct Overshoot', 'type': 'bool', 'value': True},
+#         ])         
   
-
-
 general_params = {'name': 'General Options', 'type': 'group', 'children': [
         {'name': 'Compute All Curves', 'type': 'bool', 'value': False},
-        {'name': 'Compute All Files', 'type': 'bool', 'value': False}
+        {'name': 'Compute All Files', 'type': 'bool', 'value': False},
+        {'name': 'Correct App', 'type': 'bool', 'value': False}
     ]}
+
+
 
 plot_params = {'name': 'Display Options', 'type': 'group', 'children': [
         {'name': 'Curve X axis', 'type': 'list', 'limits': ['zheight', 'time']},
-        {'name': 'Curve Y axis', 'type': 'list', 'limits': ['vdeflection', 'zheight']}
-    ]}
+        {'name': 'Curve Y axis', 'type': 'list', 'limits': ['vdeflection', 'zheight']},
+        {'name': 'Show App 0', 'type': 'bool', 'value': True},
+        {'name': 'Show Con 1', 'type': 'bool', 'value': True},
+        {'name': 'Show Ret 2', 'type': 'bool', 'value': True},
+        # {'name': 'Z Sensor Delay', 'type': 'float', 'value': 1e-3, 'units': 's'},
+        {'name': 'Correct App', 'type': 'bool', 'value': False}, # if true, take until the maximum deflection for the aproach curve.
+    ]
+}
 
 rheo_params = {'name': 'Analysis Params', 'type': 'group', 'children': [
         {'name': 'Height Channel', 'type': 'str', 'value': 'measuredHeight', 'readonly':True},
@@ -341,3 +369,17 @@ piezochar_params = [general_params, rheo_params]
 vdrag_params = [general_params, correction_params, rheo_params]
 
 microrheo_params = [general_params, correction_params, AnalysisParams(mode='microrheo', name='Analysis Params'), HertzFitParams(name='Hertz Fit Params')]
+
+
+# tether_params = [general_params, AnalysisParams(mode='tether', name='Analysis Params'), TetherAnalysisParams(name='Tether Params')]  
+
+# Thermaltune added parameters 
+
+
+
+# SADER API params ################################################
+SADER_API_version = 'Python API/0.20'
+SADER_API_type = 'text/xml'
+SADER_API_url = 'https://sadermethod.org/api/1.1/api.php'
+DEFAULT_SADER_USERNAME = 'dynamo'
+DEFAULT_SADER_PASSWORD = 'x$=Jsj*h'
