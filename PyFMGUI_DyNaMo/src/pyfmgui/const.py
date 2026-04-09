@@ -37,13 +37,13 @@ class AnalysisParams(pTypes.GroupParameter):
             {'name': 'Height Channel', 'type': 'str', 'value': 'measuredHeight', 'readonly':True},
             {'name': 'Spring Constant', 'type': 'float', 'value': None, 'units':'N/m'},
             {'name': 'Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V'},
-            {'name': 'Contact Model', 'type': 'list', 'limits': available_geometries},
+            {'name': 'Contact Model', 'type': 'list', 'limits': available_geometries, 'value': available_geometries[0]},
             {'name': 'Tip Angle', 'type': 'float', 'value': 35, 'units':'°'},
             {'name': 'Tip Radius', 'type': 'float', 'value': 75, 'units':'nm'},
             {'name': 'Tip Area', 'type': 'float', 'value': None},
-            {'name': 'Curve Segment', 'type': 'list', 'limits':['extend', 'retract']},
+            {'name': 'Curve Segment', 'type': 'list', 'limits':['extend', 'retract'], 'value': 'extend'},
             {'name': 'Correct Tilt', 'type': 'bool', 'value':False},
-            {'name': 'Offset Type', 'type': 'list', 'limits': ['percentage', 'absolute']},
+            {'name': 'Offset Type', 'type': 'list', 'limits': ['percentage', 'absolute'], 'value': 'percentage'},
             {'name': 'Perc. Min Offset', 'type': 'float', 'value': 0},
             {'name': 'Perc. Max Offset', 'type': 'float', 'value': 20},
             {'name': 'Abs. Min Offset', 'type': 'float', 'value': 10, 'units':'nm'},
@@ -52,7 +52,7 @@ class AnalysisParams(pTypes.GroupParameter):
 
         if self.mode == "microrheo":
             self.addChildren([
-                {'name': 'Method', 'type': 'list', 'limits':['FFT', 'Sine Fit']},
+                {'name': 'Method', 'type': 'list', 'limits':['FFT', 'Sine Fit'], 'value': 'FFT'},
                 {'name': 'Computed Working Indentation', 'type': 'float', 'value': None, 'units':'nm', 'readonly':True},
                 {'name': 'Working Indentation', 'type': 'float', 'value': None, 'units':'nm'},
                 {'name': 'Overwrite Working Ind.', 'type': 'bool', 'value':False},
@@ -104,10 +104,10 @@ class HertzFitParams(pTypes.GroupParameter):
         pTypes.GroupParameter.__init__(self, **opts)
         self.addChildren([
             {'name': 'Poisson Ratio', 'type': 'float', 'value': 0.5},
-            {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi']},
+            {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi'], 'value': 'RoV'},
             {'name': 'PoC Window', 'type': 'int', 'value': 350, 'units':'nm'},
             {'name': 'Sigma', 'type': 'int', 'value': 0},
-            {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force']},
+            {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force'], 'value': 'full'},
             {'name': 'Min Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Max Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Min Force', 'type': 'float', 'value': None, 'units':'nN'},
@@ -175,10 +175,10 @@ class TingFitParams(pTypes.GroupParameter):
         pTypes.GroupParameter.__init__(self, **opts)
         self.addChildren([
             {'name': 'Poisson Ratio', 'type': 'float', 'value': 0.5},
-            {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi']},
+            {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi'], 'value': 'RoV'},
             {'name': 'PoC Window', 'type': 'int', 'value': 350, 'units':'nm'},
             {'name': 'Sigma', 'type': 'int', 'value': 0},
-            {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force']},
+            {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force'], 'value': 'full'},
             {'name': 'Min Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Max Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Min Force', 'type': 'float', 'value': None, 'units':'nN'},
@@ -186,7 +186,7 @@ class TingFitParams(pTypes.GroupParameter):
             {'name': 'Correct Viscous Drag', 'type': 'bool', 'value':False},
             {'name': 'Poly. Order', 'type': 'int', 'value':2},
             {'name': 'Ramp Speed', 'type': 'float', 'value':0, 'units': 'um/s'},
-            {'name': 'Model Type', 'type': 'list', 'limits': ['analytical', 'numerical']},
+            {'name': 'Model Type', 'type': 'list', 'limits': ['analytical', 'numerical'], 'value': 'analytical'},
             {'name': 'Estimate V0t & V0r', 'type': 'bool', 'value': True}, # For psnex, might be better also for the rest. need to check
             {'name': 't0', 'type': 'int', 'value': 1, 'units':'s'},
             {'name': 'Downsample Pts.', 'type': 'int', 'value': 300},
@@ -325,8 +325,8 @@ general_params = {'name': 'General Options', 'type': 'group', 'children': [
 
 
 plot_params = {'name': 'Display Options', 'type': 'group', 'children': [
-        {'name': 'Curve X axis', 'type': 'list', 'limits': ['zheight', 'time']},
-        {'name': 'Curve Y axis', 'type': 'list', 'limits': ['vdeflection', 'zheight']},
+    {'name': 'Curve X axis', 'type': 'list', 'limits': ['zheight', 'time'], 'value': 'zheight'},
+    {'name': 'Curve Y axis', 'type': 'list', 'limits': ['vdeflection', 'zheight'], 'value': 'vdeflection'},
         {'name': 'Show App 0', 'type': 'bool', 'value': True},
         {'name': 'Show Con 1', 'type': 'bool', 'value': True},
         {'name': 'Show Ret 2', 'type': 'bool', 'value': True},

@@ -794,7 +794,11 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             if self.sader_canti_list == {}:
                 self.open_msg_box("Could not Login! Please check your credentials and internet connection.")
                 return
-            self.params.child('Calibration Params').child('Cantilever Code').setLimits(list(self.sader_canti_list.keys()))
+            cantilever_code = self.params.child('Calibration Params').child('Cantilever Code')
+            cantilever_codes = list(self.sader_canti_list.keys())
+            cantilever_code.setLimits(cantilever_codes)
+            if cantilever_codes:
+                cantilever_code.setValue(cantilever_codes[0])
             self.open_msg_box("Login was successful!")
         except Exception as e:
             print(f"Error during SADER login: {e}")
@@ -825,6 +829,9 @@ class ThermalTuneWidget(QtWidgets.QWidget):
                     self.cantType, username = self.session.sader_username,
                     password = self.session.sader_password, selectedCantCode = self.selectedCantCode
                 )
+# here apply the spring constant after calculation
+            canti_params = self.params.child('Cantilever Params')
+            canti_params.child('nominal k').setValue(float(self.k0_air))
             
             # Save fit results and ROI region for this file
             if self.filename:
