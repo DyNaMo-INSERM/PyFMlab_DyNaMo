@@ -144,6 +144,8 @@ def loadPSNEXcurve(file_metadata,curve_index = 0,
         deflection = deflection[:]
         height = height[:]
 
+    length_deflection = len(deflection)
+
 
     start_indices = np.concatenate(([0], np.cumsum(sizes_seg[:-1])))
     end_indices = start_indices + sizes_seg
@@ -153,15 +155,11 @@ def loadPSNEXcurve(file_metadata,curve_index = 0,
     for idx, (size, start, end) in enumerate(zip(sizes_seg, start_indices, end_indices)):
         actual_size = end - start
         if actual_size == 0:
-            logger.error(
+            logger.warning(
                 f"Segment {idx} has 0 data points! "
                 f"start_indices={start}, end_indices={end}. "
                 f"S values: {sizes_seg}, rel_SR: {relative_segment_sampling_rate}, "
                 f"deflection length: {length_deflection}"
-            )
-            raise ValueError(
-                f"Segment {idx} is empty. HS3 file may have corrupted or malformed metadata. "
-                f"Please verify S1, S2, S3, S4, S5, and Reading Sample Rate in .dat file."
             )
         elif actual_size < 10:
             logger.warning(
@@ -187,7 +185,6 @@ def loadPSNEXcurve(file_metadata,curve_index = 0,
 
     # correct start and end indices to match the length of the array of
     # deflection and height array
-    length_deflection = len(deflection)
     if end_indices[-1] != length_deflection:
         end_indices[-1] = length_deflection
 

@@ -794,7 +794,11 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             if self.sader_canti_list == {}:
                 self.open_msg_box("Could not Login! Please check your credentials and internet connection.")
                 return
-            self.params.child('Calibration Params').child('Cantilever Code').setLimits(list(self.sader_canti_list.keys()))
+            cantilever_code = self.params.child('Calibration Params').child('Cantilever Code')
+            cantilever_codes = list(self.sader_canti_list.keys())
+            cantilever_code.setLimits(cantilever_codes)
+            if cantilever_codes:
+                cantilever_code.setValue(cantilever_codes[0])
             self.open_msg_box("Login was successful!")
         except Exception as e:
             print(f"Error during SADER login: {e}")
