@@ -307,7 +307,7 @@ class CantileverParams(pTypes.GroupParameter):
 general_params = {'name': 'General Options', 'type': 'group', 'children': [
         {'name': 'Compute All Curves', 'type': 'bool', 'value': False},
         {'name': 'Compute All Files', 'type': 'bool', 'value': False},
-        {'name': 'Correct App', 'type': 'bool', 'value': False}
+        {'name': 'TDMS corrrect app', 'type': 'bool', 'value': False}
     ]}
 
 
@@ -315,11 +315,11 @@ general_params = {'name': 'General Options', 'type': 'group', 'children': [
 plot_params = {'name': 'Display Options', 'type': 'group', 'children': [
     {'name': 'Curve X axis', 'type': 'list', 'limits': ['zheight', 'time'], 'value': 'zheight'},
     {'name': 'Curve Y axis', 'type': 'list', 'limits': ['vdeflection', 'zheight'], 'value': 'vdeflection'},
-        {'name': 'Show App 0', 'type': 'bool', 'value': True},
-        {'name': 'Show Con 1', 'type': 'bool', 'value': True},
-        {'name': 'Show Ret 2', 'type': 'bool', 'value': True},
+        {'name': 'TDMS show App', 'type': 'bool', 'value': True},
+        {'name': 'TDMS show Con', 'type': 'bool', 'value': True},
+        {'name': 'TDMS show Ret', 'type': 'bool', 'value': True},
         # {'name': 'Z Sensor Delay', 'type': 'float', 'value': 1e-3, 'units': 's'},
-        {'name': 'Correct App', 'type': 'bool', 'value': False}, # if true, take until the maximum deflection for the aproach curve.
+        {'name': 'TDMS corrrect app', 'type': 'bool', 'value': False}, # if true, take until the maximum deflection for the aproach curve.
     ]
 }
 

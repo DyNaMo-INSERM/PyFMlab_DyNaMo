@@ -42,18 +42,18 @@ class DataViewerWidget(QtWidgets.QWidget):
         self.curve_x.sigValueChanged.connect(self.updateCurve)
         self.curve_y = self.params.child('Display Options').child('Curve Y axis')
         self.curve_y.sigValueChanged.connect(self.updateCurve)
-        self.correct_app = self.params.child('Display Options').child('Correct App')
+        self.correct_app = self.params.child('Display Options').child('TDMS corrrect app')
         self.correct_app.sigValueChanged.connect(self.updateCurve)
         
         # Hide PSNEX/HS3-specific parameters by default
         display_options = self.params.child('Display Options')
-        for param_name in ['Show App 0', 'Show Con 1', 'Show Ret 2']:
+        for param_name in ['TDMS show App', 'TDMS show Con', 'TDMS show Ret']:
             try:
                 display_options.child(param_name).hide()
             except:
                 pass
         try:
-            display_options.child('Correct App').hide()
+            display_options.child('TDMS corrrect app').hide()
         except:
             pass
 
@@ -116,7 +116,7 @@ class DataViewerWidget(QtWidgets.QWidget):
         display_options = self.params.child('Display Options')
         
         # Parameters that are specific to PSNEX/HS3 files
-        psnex_hs3_params = ['Show App 0', 'Show Con 1', 'Show Ret 2', 'Correct App']
+        psnex_hs3_params = ['TDMS show App', 'TDMS show Con', 'TDMS show Ret', 'TDMS corrrect app']
         
         for param_name in psnex_hs3_params:
             try:
@@ -138,7 +138,7 @@ class DataViewerWidget(QtWidgets.QWidget):
         
         # Reset PSNEX/HS3-specific parameters to hidden (default state)
         display_options = self.params.child('Display Options')
-        for param_name in ['Show App 0', 'Show Con 1', 'Show Ret 2', 'Correct App']:
+        for param_name in ['TDMS show App', 'TDMS show Con', 'TDMS show Ret', 'TDMS corrrect app']:
             try:
                 display_options.child(param_name).hide()
             except:
@@ -165,10 +165,10 @@ class DataViewerWidget(QtWidgets.QWidget):
         self.p1.addLegend((100, 30))
         xkey = self.curve_x.value()
         ykey = self.curve_y.value()
-        show_app0 = self.params.child('Display Options').child('Show App 0').value()
-        show_ret = self.params.child('Display Options').child('Show Ret 2').value()
-        show_con = self.params.child('Display Options').child('Show Con 1').value()
-        self.correct_app = self.params.child('Display Options').child('Correct App')
+        show_app0 = self.params.child('Display Options').child('TDMS show App').value()
+        show_ret = self.params.child('Display Options').child('TDMS show Ret').value()
+        show_con = self.params.child('Display Options').child('TDMS show Con').value()
+        self.correct_app = self.params.child('Display Options').child('TDMS corrrect app')
 
         t0 = 0
         fc_segments = force_curve.get_segments()
