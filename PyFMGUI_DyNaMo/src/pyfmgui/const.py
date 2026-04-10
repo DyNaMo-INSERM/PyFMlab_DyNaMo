@@ -6,7 +6,7 @@ from .canti_list import canti_list
 # v.x.0.0 --> Major release
 # v.0.x.0 --> Minor release
 # v.0.0.x --> Bug fix
-pyFM_VERSION = "PyFMLab v.1.0.2"
+pyFM_VERSION = "PyFMLab v.1.0.2.1"
 
 # FILE CONSTANTS ##################################################
 jpk_file_extensions = ('jpk-force', 'jpk-force-map', 'jpk-qi-data','jpk-qi-series')
@@ -14,6 +14,14 @@ nanoscope_file_extensions = ('spm', 'pfc')
 jpk_h5_file = ('h5-jpk','JPK MultiScan Force Map Spectroscopy','JPK MultiScan Force Spectroscopy')                                        # As in 18-08-2025
 asylum_file_extensions = ('ARDF', 'ibw')
 psnex_file_extension = ('psnex', 'tdms','PSNEX.tdms')
+hs3_file_extension = ('HS3.tdms',)
+
+
+# HELPER FUNCTIONS ##################################################
+
+def is_psnex_or_hs3_file(file_type):
+    """Check if file type is PSNEX/TDMS or HS3 format"""
+    return file_type in psnex_file_extension or file_type in hs3_file_extension
 
 
 # ANALYSIS CONSTANTS ##############################################
@@ -187,7 +195,7 @@ class TingFitParams(pTypes.GroupParameter):
             {'name': 'Poly. Order', 'type': 'int', 'value':2},
             {'name': 'Ramp Speed', 'type': 'float', 'value':0, 'units': 'um/s'},
             {'name': 'Model Type', 'type': 'list', 'limits': ['analytical', 'numerical'], 'value': 'analytical'},
-            {'name': 'Estimate V0t & V0r', 'type': 'bool', 'value': True}, # For psnex, might be better also for the rest. need to check
+            {'name': 'Estimate V0t & V0r', 'type': 'bool', 'value': True}, 
             {'name': 't0', 'type': 'int', 'value': 1, 'units':'s'},
             {'name': 'Downsample Pts.', 'type': 'int', 'value': 300},
             {'name': 'Fit Line to non contact', 'type': 'bool', 'value':False},
@@ -197,7 +205,7 @@ class TingFitParams(pTypes.GroupParameter):
             {'name': 'Init E0', 'type': 'int', 'value': 1000, 'units':'Pa'},
             {'name': 'Init tc', 'type': 'float', 'value': 0, 'units':'s'},
             {'name': 'Init f0', 'type': 'float', 'value': 0, 'units':'nN'},
-            {'name': 'Viscous Drag', 'type': 'float', 'value': 0.0003, 'units':'pN/nm·s'}, # Changed default from 0 to 0.0003 For Psnx, might be also good as a default for other purposes. 
+            {'name': 'Viscous Drag', 'type': 'float', 'value': 0, 'units':'pN/nm·s'}, 
             {'name': 'Auto Init  Fluid. Exp.', 'type': 'bool', 'value':True},
             {'name': 'Init Fluid. Exp.', 'type': 'float', 'value': 0.20},
             {'name': 'Contact Offset', 'type': 'float', 'value': 1, 'units':'um'},

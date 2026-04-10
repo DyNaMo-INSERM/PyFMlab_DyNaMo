@@ -88,7 +88,7 @@ class UFF:
         elif file_type in psnexfiles:
             FC = loadPSNEXcurve(self.filemetadata, curveidx, bool_correct_overshoot=self.bool_correct_overshoot)
         elif file_type in hs3files:
-            FC = loadHS3curve(self.filemetadata, curveidx)
+            FC = loadHS3curve(self.filemetadata, curveidx, bool_correct_overshoot=False)
         elif file_type in ibwfiles:
             FC = loadIBWcurve(self.filemetadata, curveidx)
         elif file_type in ARDFfiles:
@@ -143,7 +143,7 @@ class UFF:
                 FC = loadPSNEXcurve(self.filemetadata, curveidx, bool_correct_overshoot=self.bool_correct_overshoot)
                 self._curve_cache = FC
         elif file_type in hs3files:
-            FC = loadHS3curve(self.filemetadata, curveidx)
+            FC = loadHS3curve(self.filemetadata, curveidx, bool_correct_overshoot=bool_correct_overshoot)
         elif file_type in ibwfiles:
             FC = loadIBWcurve(self.filemetadata, curveidx)
         elif file_type in ARDFfiles:
