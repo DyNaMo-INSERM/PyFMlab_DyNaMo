@@ -44,6 +44,13 @@ class HertzFitWidget(QtWidgets.QWidget):
 
         self.paramTree = ParameterTree()
         self.paramTree.setParameters(self.params, showTop=False)
+        
+        # Hide Correct App parameter by default - only show for PSNEX/HS3 files
+        try:
+            general_options = self.params.child('General Options')
+            general_options.child('Correct App').hide()
+        except:
+            pass
 
         # Added: Connect Correct App parameter to update if it exists
         try:
@@ -86,6 +93,26 @@ class HertzFitWidget(QtWidgets.QWidget):
         main_layout.addLayout(params_layout, 1)
         main_layout.addWidget(self.l, 3)
 
+    def update_param_visibility(self):
+        """Update visibility of PSNEX/HS3-specific parameters based on current file type"""
+        if not self.current_file:
+            return
+        
+        file_type = self.current_file.filemetadata.get('file_type', '')
+        is_psnex_or_hs3 = cts.is_psnex_or_hs3_file(file_type)
+        
+        # Get General Options group where Correct App is located
+        general_options = self.params.child('General Options')
+        
+        try:
+            correct_app_param = general_options.child('Correct App')
+            if is_psnex_or_hs3:
+                correct_app_param.show()
+            else:
+                correct_app_param.hide()
+        except:
+            pass
+
     def closeEvent(self, evnt):
         self.session.hertz_fit_widget = None
 
@@ -93,6 +120,13 @@ class HertzFitWidget(QtWidgets.QWidget):
         self.combobox.clear()
         self.l.clear()
         self.l2.clear()
+        
+        # Reset Correct App parameter to hidden (default state)
+        try:
+            general_options = self.params.child('General Options')
+            general_options.child('Correct App').hide()
+        except:
+            pass
 
     def do_hertzfit(self):
         if not self.current_file:
@@ -155,6 +189,9 @@ class HertzFitWidget(QtWidgets.QWidget):
     def update(self):
         self.current_file = self.session.current_file
         self.updateParams()
+        
+        # Update parameter visibility based on file type
+        self.update_param_visibility()
         self.l2.clear()
         if self.current_file.isFV:
             self.l2.addItem(self.plotItem)

@@ -44,6 +44,18 @@ class DataViewerWidget(QtWidgets.QWidget):
         self.curve_y.sigValueChanged.connect(self.updateCurve)
         self.correct_app = self.params.child('Display Options').child('Correct App')
         self.correct_app.sigValueChanged.connect(self.updateCurve)
+        
+        # Hide PSNEX/HS3-specific parameters by default
+        display_options = self.params.child('Display Options')
+        for param_name in ['Show App 0', 'Show Con 1', 'Show Ret 2']:
+            try:
+                display_options.child(param_name).hide()
+            except:
+                pass
+        try:
+            display_options.child('Correct App').hide()
+        except:
+            pass
 
         self.paramTree = ParameterTree()
         self.paramTree.setParameters(self.params, showTop=False)
@@ -93,6 +105,29 @@ class DataViewerWidget(QtWidgets.QWidget):
             if self.session.hertz_fit_widget:
                 self.session.hertz_fit_widget.updatePlots()
 
+    def update_param_visibility(self):
+        """Update visibility of PSNEX/HS3-specific parameters based on current file type"""
+        if not self.session.current_file:
+            return
+        
+        file_type = self.session.current_file.filemetadata.get('file_type', '')
+        is_psnex_or_hs3 = cts.is_psnex_or_hs3_file(file_type)
+        
+        display_options = self.params.child('Display Options')
+        
+        # Parameters that are specific to PSNEX/HS3 files
+        psnex_hs3_params = ['Show App 0', 'Show Con 1', 'Show Ret 2', 'Correct App']
+        
+        for param_name in psnex_hs3_params:
+            try:
+                param = display_options.child(param_name)
+                if is_psnex_or_hs3:
+                    param.show()
+                else:
+                    param.hide()
+            except:
+                pass  # Parameter might not exist in all cases
+
     def closeEvent(self, evnt):
         self.session.data_viewer_widget = None
     
@@ -100,6 +135,14 @@ class DataViewerWidget(QtWidgets.QWidget):
         self.tree.clear()
         self.updatePlots(None)
         self.metadata_tree.setData(data="No loaded data")
+        
+        # Reset PSNEX/HS3-specific parameters to hidden (default state)
+        display_options = self.params.child('Display Options')
+        for param_name in ['Show App 0', 'Show Con 1', 'Show Ret 2', 'Correct App']:
+            try:
+                display_options.child(param_name).hide()
+            except:
+                pass
     
     def updateTable(self):
         self.tree.clear()
@@ -195,6 +238,9 @@ class DataViewerWidget(QtWidgets.QWidget):
 
         self.l.clear()
         self.session.current_file = self.session.loaded_files[file_id]
+        
+        # Update parameter visibility based on file type
+        self.update_param_visibility()
 
         if self.session.current_file.isFV:
             self.l.addItem(self.plotItem)
