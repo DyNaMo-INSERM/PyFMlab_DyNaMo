@@ -48,13 +48,13 @@ class HertzFitWidget(QtWidgets.QWidget):
         # Hide Correct App parameter by default - only show for PSNEX/HS3 files
         try:
             general_options = self.params.child('General Options')
-            general_options.child('Correct App').hide()
+            general_options.child('TDMS corrrect app').hide()
         except:
             pass
 
         # Added: Connect Correct App parameter to update if it exists
         try:
-            self.correct_app = self.params.child('General Options').child('Correct App')
+            self.correct_app = self.params.child('General Options').child('TDMS corrrect app')
             self.correct_app.sigValueChanged.connect(self.update)
         except KeyError:
             # Correct App parameter may not exist in older configurations
@@ -105,7 +105,7 @@ class HertzFitWidget(QtWidgets.QWidget):
         general_options = self.params.child('General Options')
         
         try:
-            correct_app_param = general_options.child('Correct App')
+            correct_app_param = general_options.child('TDMS corrrect app')
             if is_psnex_or_hs3:
                 correct_app_param.show()
             else:
@@ -124,7 +124,7 @@ class HertzFitWidget(QtWidgets.QWidget):
         # Reset Correct App parameter to hidden (default state)
         try:
             general_options = self.params.child('General Options')
-            general_options.child('Correct App').hide()
+            general_options.child('TDMS corrrect app').hide()
         except:
             pass
 
@@ -138,7 +138,7 @@ class HertzFitWidget(QtWidgets.QWidget):
                 self.session.current_file.filemetadata['Entry_filename']: self.session.current_file}
         # Log if Correct App option is enabled
         try:
-            if self.params.child('General Options').child('Correct App').value():
+            if self.params.child('General Options').child('TDMS corrrect app').value():
                 logger.info('Correct App overshoot correction is enabled')
         except KeyError:
             pass  # Parameter may not exist
@@ -306,7 +306,7 @@ class HertzFitWidget(QtWidgets.QWidget):
         # Get the Correct App parameter value for overshoot correction (default False if not found)
         correct_overshoot = False
         try:
-            correct_overshoot = self.params.child('General Options').child('Correct App').value()
+            correct_overshoot = self.params.child('General Options').child('TDMS corrrect app').value()
         except KeyError:
             pass  # Parameter may not exist
         force_curve = self.current_file.getcurve(current_curve_indx, bool_correct_overshoot=correct_overshoot)
@@ -380,7 +380,7 @@ class HertzFitWidget(QtWidgets.QWidget):
             self.force = ext_data.force
             # Optionally center force baseline when Correct App is enabled
             try:
-                if self.params.child('General Options').child('Correct App').value():
+                if self.params.child('General Options').child('TDMS corrrect app').value():
                     self.force = self.force - self.force[0]
             except KeyError:
                 pass  # Parameter may not exist
@@ -389,7 +389,7 @@ class HertzFitWidget(QtWidgets.QWidget):
             self.force = ret_data.force
             # Optionally center force baseline when Correct App is enabled
             try:
-                if self.params.child('General Options').child('Correct App').value():
+                if self.params.child('General Options').child('TDMS corrrect app').value():
                     self.force = self.force - self.force[-1]
             except KeyError:
                 pass  # Parameter may not exist
