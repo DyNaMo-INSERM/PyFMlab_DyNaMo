@@ -1247,11 +1247,11 @@ class ThermalTuneWidget(QtWidgets.QWidget):
             return
         
         try:
-            exporter = ImageExporter(self.l)
-            exporter.export(toBytes=False, copy=False, params={'width': 1200, 'height': 600})
+            # Export the PlotItem directly; GraphicsLayoutWidget is not supported by ImageExporter.
+            exporter = ImageExporter(self.p1)
             exporter.params['width'] = 1200
             exporter.params['height'] = 600
-            exporter.export(toFile=file_path)
+            exporter.export(fileName=file_path)
             
             print(f"Plot saved to: {file_path}")
             
