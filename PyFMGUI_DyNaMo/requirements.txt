@@ -36,6 +36,6 @@ tifffile>=2023.7.18
 tzdata>=2023.3
 uncertainties>=3.1.7
 urllib3>=2.0.4
-afmformats
+afmformats==0.18.4
 sidpy>=0.12.7
 h5py>=3.14.0
