@@ -9,17 +9,12 @@
                 "-m",
                 "PyInstaller",
                 "--noconfirm",
-                "--onefile",
-                "--windowed",
-                "--name",
-                "PyFMGUI_DyNaMo",
+                "--clean",
                 "--distpath",
                 "${workspaceFolder}/PyFMGUI_DyNaMo/dist",
                 "--workpath",
                 "${workspaceFolder}/PyFMGUI_DyNaMo/build",
-                "--specpath",
-                "${workspaceFolder}/PyFMGUI_DyNaMo",
-                "${workspaceFolder}/PyFMGUI_DyNaMo/src/main.py"
+                "${workspaceFolder}/PyFMGUI_DyNaMo/PyFMGUI_DyNaMo.spec"
             ],
             "group": "build",
             "problemMatcher": []
