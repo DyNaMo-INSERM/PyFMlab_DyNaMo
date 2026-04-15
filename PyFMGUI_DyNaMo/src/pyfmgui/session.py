@@ -8,6 +8,11 @@ class Session:
         self.piezo_char_results = {}
         self.vdrag_results = {}
         self.microrheo_results = {}
+        # Thermal tune working data - persists across widget close/open
+        self.thermal_tune_air_files_data = []
+        self.thermal_tune_liquid_files_data = []
+        self.thermal_tune_air_fit_results = {}
+        self.thermal_tune_liquid_fit_results = {}
         self.current_file=None
         self.map_coords = None
         self.current_curve_index=None
@@ -35,6 +40,16 @@ class Session:
         'vdrag_results': None,
         'microrheo_results': None
         }
+        # Path memory for file dialogs - remember last browsed directories
+        import os
+        self.last_browsed_paths = {
+            'afm_files': os.path.expanduser("~"),
+            'thermal_files': os.path.expanduser("~"),
+            'piezo_files': os.path.expanduser("~"),
+            'macro_files': os.path.expanduser("~"),
+            'export_dir': os.path.expanduser("~"),
+            'general': os.path.expanduser("~")
+        }
     
     def remove_piezo_char_data(self):
         self.piezo_char_data = None
@@ -48,6 +63,10 @@ class Session:
         self.ting_fit_results = {}
         self.piezo_char_results = {}
         self.vdrag_results = {}
+        self.thermal_tune_air_files_data = []
+        self.thermal_tune_liquid_files_data = []
+        self.thermal_tune_air_fit_results = {}
+        self.thermal_tune_liquid_fit_results = {}
         self.microrheo_results = {}
     
     def remove_data_and_results(self):

@@ -45,13 +45,31 @@ def get_poc_regulaFalsi_method(app_height, app_deflection, sigma=0):
 
 def get_poc_RoV_method(app_height, app_deflection, windowforCP=350*1e-9):
   deltaz=np.abs(app_height.max()-app_height.min())
+  if deltaz == 0:
+    raise Exception('Height data has no variation!')
   zperpt=deltaz/len(app_height)
   win_size=int(windowforCP/2/zperpt)*2
+  
+  # Ensure win_size doesn't exceed data length
+  if win_size >= len(app_deflection):
+    win_size = max(1, len(app_deflection) // 2)
+  
   rov_dfl_1 = pd.Series(app_deflection[win_size+1:])
   rov_dfl_2 = pd.Series(app_deflection[:-win_size])
+  
+  # Check if we have enough data
+  if len(rov_dfl_1) == 0 or len(rov_dfl_2) == 0:
+    raise Exception('Insufficient data for RoV method!')
+  
   rovi = rov_dfl_1.rolling(win_size, center=True, min_periods=1).var(ddof=0)/\
           rov_dfl_2.rolling(win_size, center=True, min_periods=1).var(ddof=0)
-  rovi_idx = rovi.idxmax()
+  
+  # Filter out invalid values (NaN, inf)
+  rovi_valid = rovi.replace([np.inf, -np.inf], np.nan).dropna()
+  if len(rovi_valid) == 0:
+    raise Exception('Could not compute valid RoV values!')
+  
+  rovi_idx = rovi_valid.idxmax()
   rov_poc_x = app_height[rovi_idx]
   rov_poc_y = app_deflection[rovi_idx]
   return np.array([rov_poc_x, rov_poc_y])

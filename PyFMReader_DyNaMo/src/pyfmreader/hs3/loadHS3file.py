@@ -1,49 +1,38 @@
     #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Apr  4 18:07:01 2024
+Created on Thu Aug  7 18:07:01 2025
 
-@author: vip
+@author: Lorenzo villanueva 
 """
+
 from .parseHS3header import parseHS3header
-from nptdms import TdmsFile
-
-
 
 def loadHS3file(filepath, UFF):
     """
-    Load both .dat metadata and the two Force‐Curve channels
-    ('Piezo' and 'Deflection') into the supplied UFF object.
+    Function used to load the metadata of a PS_nex file.
 
-    Parameters
-    ----------
-    filepath : str
-        Full path to the .tdms HS3 file.
-    UFF : uff.UFF
-        A pre‐constructed UFF object to hold metadata + data.
-    
-    Returns
-    -------
-    UFF : uff.UFF
-        The same UFF object, now with:
-          - UFF.filemetadata[...]  (header + channel arrays)
-          - a few flags (found_vDeflection, file_type, ...)
+            Parameters:
+                    filepath (str): Path to the PS_nex file.
+                    UFF (uff.UFF): UFF object to load the metadata into.
+            
+            Returns:
+                    UFF (uff.UFF): UFF object containing the loaded metadata.
     """
-    # 1) First, parse the .dat metadata
-    filemetadata = parseHS3header(filepath)  
+    UFF.filemetadata = parseHS3header(filepath)
+    # UFF.filemetadata['tick_time_z_loop'] = 2e-06 # 500khz
+    # UFF.filemetadata['tick_time_z_loop_correction_factor'] = 10  # July 31 2025. Added by Lorenzo. apparently, there is a insconsistency
+    UFF.filemetadata["num_segments"] = 3 # constant for hs3 files 
     
-    # 3) Populate UFF.filemetadata
-    UFF.filemetadata          = filemetadata
-    
-    # 4) The flags and keys you asked for
-    UFF.filemetadata['found_vDeflection']      = True
-    UFF.filemetadata['height_channel_key']     = 'Piezo'
-    UFF.filemetadata['deflection_channel_key'] = 'Deflection'
-    
-    
-    UFF.filemetadata['isFV']     = False
+    # Required metadata flags for UI
+    UFF.filemetadata['found_vDeflection'] = True
+    UFF.filemetadata['isFV'] = False
+    # UFF.filemetadata['num_x_pixels'] = 32
+    # UFF.filemetadata['num_y_pixels'] = 32
+    # UFF.filemetadata['scan_size_x'] = 0
+    # UFF.filemetadata['scan_size_y'] = 0
     UFF.filemetadata['file_type'] = 'HS3.tdms'
-    
+
     return UFF
 
 

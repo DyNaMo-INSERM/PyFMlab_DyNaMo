@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build PyFMGUI EXE",
+            "type": "shell",
+            "command": "${command:python.interpreterPath}",
+            "args": [
+                "-m",
+                "PyInstaller",
+                "--noconfirm",
+                "--clean",
+                "--distpath",
+                "${workspaceFolder}/PyFMGUI_DyNaMo/dist",
+                "--workpath",
+                "${workspaceFolder}/PyFMGUI_DyNaMo/build",
+                "${workspaceFolder}/PyFMGUI_DyNaMo/PyFMGUI_DyNaMo.spec"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run PyFMGUI EXE",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "if (Test-Path '${workspaceFolder}/PyFMGUI_DyNaMo/dist/PyFMGUI_DyNaMo.exe') { Start-Process -FilePath '${workspaceFolder}/PyFMGUI_DyNaMo/dist/PyFMGUI_DyNaMo.exe' } else { Write-Error 'Executable not found. Run task: Build PyFMGUI EXE' }"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Build and Run PyFMGUI EXE",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Build PyFMGUI EXE",
+                "Run PyFMGUI EXE"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

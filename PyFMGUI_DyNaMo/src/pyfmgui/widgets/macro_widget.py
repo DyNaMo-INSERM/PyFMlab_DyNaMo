@@ -1,6 +1,7 @@
 # This file contains code from the PyQTGraph github repository
 # https://github.com/pyqtgraph/pyqtgraph/blob/master/pyqtgraph/examples/ExampleApp.py
 
+import os
 from io import StringIO
 from contextlib import redirect_stdout
 import PyQt5
@@ -58,8 +59,10 @@ class MacroWidget(QtWidgets.QWidget):
     
     def loadCodeFile(self):
         fname, _ = QtWidgets.QFileDialog.getOpenFileName(
-        	self, 'Open file', './', "Python Files (*.py)"
+        	self, 'Open file', self.session.last_browsed_paths['macro_files'], "Python Files (*.py)"
         )
+        if fname != "":
+            self.session.last_browsed_paths['macro_files'] = os.path.dirname(fname)
         return self.loadCode(fname)
     
     def loadCode(self, file_path=None):

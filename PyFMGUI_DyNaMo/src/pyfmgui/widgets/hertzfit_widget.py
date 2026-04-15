@@ -44,6 +44,22 @@ class HertzFitWidget(QtWidgets.QWidget):
 
         self.paramTree = ParameterTree()
         self.paramTree.setParameters(self.params, showTop=False)
+        
+        # Hide Correct App parameter by default - only show for PSNEX/HS3 files
+        try:
+            general_options = self.params.child('General Options')
+            general_options.child('TDMS corrrect app').hide()
+        except:
+            pass
+
+        # Added: Connect Correct App parameter to update if it exists
+        try:
+            self.correct_app = self.params.child('General Options').child('TDMS corrrect app')
+            self.correct_app.sigValueChanged.connect(self.update)
+        except KeyError:
+            # Correct App parameter may not exist in older configurations
+            logger.debug('Correct App parameter not found in configuration')
+            self.correct_app = None
 
         self.l2 = pg.GraphicsLayoutWidget()
 
@@ -77,6 +93,26 @@ class HertzFitWidget(QtWidgets.QWidget):
         main_layout.addLayout(params_layout, 1)
         main_layout.addWidget(self.l, 3)
 
+    def update_param_visibility(self):
+        """Update visibility of PSNEX/HS3-specific parameters based on current file type"""
+        if not self.current_file:
+            return
+        
+        file_type = self.current_file.filemetadata.get('file_type', '')
+        is_psnex_or_hs3 = cts.is_psnex_or_hs3_file(file_type)
+        
+        # Get General Options group where Correct App is located
+        general_options = self.params.child('General Options')
+        
+        try:
+            correct_app_param = general_options.child('TDMS corrrect app')
+            if is_psnex_or_hs3:
+                correct_app_param.show()
+            else:
+                correct_app_param.hide()
+        except:
+            pass
+
     def closeEvent(self, evnt):
         self.session.hertz_fit_widget = None
 
@@ -84,6 +120,13 @@ class HertzFitWidget(QtWidgets.QWidget):
         self.combobox.clear()
         self.l.clear()
         self.l2.clear()
+        
+        # Reset Correct App parameter to hidden (default state)
+        try:
+            general_options = self.params.child('General Options')
+            general_options.child('TDMS corrrect app').hide()
+        except:
+            pass
 
     def do_hertzfit(self):
         if not self.current_file:
@@ -93,6 +136,12 @@ class HertzFitWidget(QtWidgets.QWidget):
         else:
             filedict = {
                 self.session.current_file.filemetadata['Entry_filename']: self.session.current_file}
+        # Log if Correct App option is enabled
+        try:
+            if self.params.child('General Options').child('TDMS corrrect app').value():
+                logger.info('Correct App overshoot correction is enabled')
+        except KeyError:
+            pass  # Parameter may not exist
         params = get_params(self.params, "HertzFit")
         logger.info('Started ElasticityFit...')
         logger.info(f'Processing {len(filedict)} files')
@@ -140,6 +189,9 @@ class HertzFitWidget(QtWidgets.QWidget):
     def update(self):
         self.current_file = self.session.current_file
         self.updateParams()
+        
+        # Update parameter visibility based on file type
+        self.update_param_visibility()
         self.l2.clear()
         if self.current_file.isFV:
             self.l2.addItem(self.plotItem)
@@ -251,7 +303,13 @@ class HertzFitWidget(QtWidgets.QWidget):
         poc_sigma = hertz_params.child('Sigma').value()
         contact_offset = hertz_params.child('Contact Offset').value() / 1e6
 
-        force_curve = self.current_file.getcurve(current_curve_indx)
+        # Get the Correct App parameter value for overshoot correction (default False if not found)
+        correct_overshoot = False
+        try:
+            correct_overshoot = self.params.child('General Options').child('TDMS corrrect app').value()
+        except KeyError:
+            pass  # Parameter may not exist
+        force_curve = self.current_file.getcurve(current_curve_indx, bool_correct_overshoot=correct_overshoot)
         force_curve.preprocess_force_curve(deflection_sens, height_channel)
 
         if self.session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
@@ -299,12 +357,16 @@ class HertzFitWidget(QtWidgets.QWidget):
 
         comp_PoC = [0, 0]
 
-        if poc_method == 'RoV':
-            comp_PoC = get_poc_RoV_method(
-                self.seg_data.zheight, self.seg_data.vdeflection, poc_win)
-        else:
-            comp_PoC = get_poc_regulaFalsi_method(
-                self.seg_data.zheight, self.seg_data.vdeflection, poc_sigma)
+        try:
+            if poc_method == 'RoV':
+                comp_PoC = get_poc_RoV_method(
+                    self.seg_data.zheight, self.seg_data.vdeflection, poc_win)
+            else:
+                comp_PoC = get_poc_regulaFalsi_method(
+                    self.seg_data.zheight, self.seg_data.vdeflection, poc_sigma)
+        except Exception as e:
+            logger.warning(f'Failed to compute PoC ({poc_method}): {str(e)}. Using default PoC [0, 0]')
+            comp_PoC = [0, 0]
 
         if comp_PoC is not None:
             poc = [comp_PoC[0], 0]
@@ -316,10 +378,21 @@ class HertzFitWidget(QtWidgets.QWidget):
         if curve_seg == 'extend':
             self.indentation = ext_data.indentation
             self.force = ext_data.force
-
+            # Optionally center force baseline when Correct App is enabled
+            try:
+                if self.params.child('General Options').child('TDMS corrrect app').value():
+                    self.force = self.force - self.force[0]
+            except KeyError:
+                pass  # Parameter may not exist
         else:
             self.indentation = ret_data.indentation
             self.force = ret_data.force
+            # Optionally center force baseline when Correct App is enabled
+            try:
+                if self.params.child('General Options').child('TDMS corrrect app').value():
+                    self.force = self.force - self.force[-1]
+            except KeyError:
+                pass  # Parameter may not exist
 
         if hertz_params.child('Downsample Signal').value():
             pts_downsample = hertz_params.child('Downsample Pts.').value()
@@ -447,8 +520,9 @@ class HertzFitWidget(QtWidgets.QWidget):
             analysis_params.child('Deflection Sensitivity').setValue(
                 self.current_file.filemetadata['defl_sens_nmbyV'])
         else:
+            # session.global_involts is in m/V, but parameter displays nm/V
             analysis_params.child('Deflection Sensitivity').setValue(
-                self.session.global_involts)
+                self.session.global_involts * 1e9)
 
         analysis_params.child(
             'Correct Tilt').sigValueChanged.connect(self.updatePlots)

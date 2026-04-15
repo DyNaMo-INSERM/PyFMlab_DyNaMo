@@ -44,6 +44,22 @@ class TingFitWidget(QtWidgets.QWidget):
 
         self.paramTree = ParameterTree()
         self.paramTree.setParameters(self.params, showTop=False)
+        
+        # Hide Correct App parameter by default - only show for PSNEX/HS3 files
+        try:
+            general_options = self.params.child('General Options')
+            general_options.child('TDMS corrrect app').hide()
+        except:
+            pass
+
+        # Added: Connect Correct App parameter to update if it exists
+        try:
+            self.correct_app = self.params.child('General Options').child('TDMS corrrect app')
+            self.correct_app.sigValueChanged.connect(self.update)
+        except KeyError:
+            # Correct App parameter may not exist in older configurations
+            logger.debug('Correct App parameter not found in configuration')
+            self.correct_app = None
 
         self.l2 = pg.GraphicsLayoutWidget()
 
@@ -76,6 +92,26 @@ class TingFitWidget(QtWidgets.QWidget):
         main_layout.addLayout(params_layout, 1)
         main_layout.addWidget(self.l, 3)
     
+    def update_param_visibility(self):
+        """Update visibility of PSNEX/HS3-specific parameters based on current file type"""
+        if not self.current_file:
+            return
+        
+        file_type = self.current_file.filemetadata.get('file_type', '')
+        is_psnex_or_hs3 = cts.is_psnex_or_hs3_file(file_type)
+        
+        # Get General Options group where Correct App is located
+        general_options = self.params.child('General Options')
+        
+        try:
+            correct_app_param = general_options.child('TDMS corrrect app')
+            if is_psnex_or_hs3:
+                correct_app_param.show()
+            else:
+                correct_app_param.hide()
+        except:
+            pass
+
     def closeEvent(self, evnt):
         self.session.ting_fit_widget = None
     
@@ -83,6 +119,13 @@ class TingFitWidget(QtWidgets.QWidget):
         self.combobox.clear()
         self.l.clear()
         self.l2.clear()
+        
+        # Reset Correct App parameter to hidden (default state)
+        try:
+            general_options = self.params.child('General Options')
+            general_options.child('TDMS corrrect app').hide()
+        except:
+            pass
 
     def do_hertzfit(self):
         if not self.current_file:
@@ -91,6 +134,12 @@ class TingFitWidget(QtWidgets.QWidget):
             filedict = self.session.loaded_files
         else:
             filedict = {self.session.current_file.filemetadata['Entry_filename']:self.session.current_file}
+        # Log if Correct App option is enabled
+        try:
+            if self.params.child('General Options').child('TDMS corrrect app').value():
+                logger.info('Correct App overshoot correction is enabled')
+        except KeyError:
+            pass  # Parameter may not exist
         params = get_params(self.params, "TingFit")
         # compute(self.session, params,  self.filedict, "TingFit")
         logger.info('Started ViscoelasticityFit...')
@@ -118,7 +167,6 @@ class TingFitWidget(QtWidgets.QWidget):
         self.pushButton.setEnabled(False) # Prevent user from starting another
         # Update the gui
         self.updatePlots()
-        self.updatePlots()
     
     def changestep(self, step):
         self.session.pbar_widget.set_label_sub_text(step)
@@ -140,6 +188,9 @@ class TingFitWidget(QtWidgets.QWidget):
     def update(self):
         self.current_file = self.session.current_file
         self.updateParams()
+        
+        # Update parameter visibility based on file type
+        self.update_param_visibility()
         self.l2.clear()
         if self.current_file.isFV:
             self.l2.addItem(self.plotItem)
@@ -254,7 +305,13 @@ class TingFitWidget(QtWidgets.QWidget):
         pts_downsample = ting_params.child('Downsample Pts.').value()
         correct_tilt_flag = analysis_params.child('Correct Tilt').value()
 
-        force_curve = self.current_file.getcurve(current_curve_indx)
+        # Get the Correct App parameter value for overshoot correction (default False if not found)
+        correct_overshoot = False
+        try:
+            correct_overshoot = self.params.child('General Options').child('TDMS corrrect app').value()
+        except KeyError:
+            pass  # Parameter may not exist
+        force_curve = self.current_file.getcurve(current_curve_indx, bool_correct_overshoot=correct_overshoot)
         force_curve.preprocess_force_curve(deflection_sens, height_channel)
 
         if self.session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
@@ -436,7 +493,8 @@ class TingFitWidget(QtWidgets.QWidget):
         if self.session.global_involts is None:
             analysis_params.child('Deflection Sensitivity').setValue(self.current_file.filemetadata['defl_sens_nmbyV'])
         else:
-            analysis_params.child('Deflection Sensitivity').setValue(self.session.global_involts)
+            # session.global_involts is in m/V, but parameter displays nm/V
+            analysis_params.child('Deflection Sensitivity').setValue(self.session.global_involts * 1e9)
         
         analysis_params.child('Correct Tilt').sigValueChanged.connect(self.updatePlots)
         analysis_params.child('Offset Type').sigValueChanged.connect(self.updatePlots)

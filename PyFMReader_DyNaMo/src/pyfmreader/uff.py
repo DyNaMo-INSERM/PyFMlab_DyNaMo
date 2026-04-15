@@ -48,10 +48,13 @@ class UFF:
         # In files like JPK scans you may
         # have additional image data.
         self.imagedata = None
+        self.bool_correct_overshoot = False
+        self._curve_cache = None  # Cache for loaded curves to avoid reloading 
 
     def _loadcurve(self, curveidx, afmfile, file_type):
         """
         Hidden function used to load a single curve from a file.
+        bool_correct_overshoot is used to correct the overshoot in PS-NEX files.
 
         Supported formats:
             - JPK --> .jpk-force, .jpk-force-map, .jpk-qi-data
@@ -66,6 +69,7 @@ class UFF:
                         curveidx (int): Index of curve to load.
                         afmfile (ZipFile): Buffer containing the data of the AFM file. Only used for JPK files.
                         file_type (str): File extension.
+                        bool_correct_overshoot (bool): Flag indicating whether to correct overshoot.
 
                 Returns:
                         FC (utils.forcecurve.ForceCurve): ForceCurve object containing the force curve data.
@@ -82,16 +86,16 @@ class UFF:
         elif file_type in ufffiles:
             FC = loadUFFcurve(self.filemetadata)
         elif file_type in psnexfiles:
-            FC = loadPSNEXcurve(self.filemetadata, curveidx)
+            FC = loadPSNEXcurve(self.filemetadata, curveidx, bool_correct_overshoot=self.bool_correct_overshoot)
         elif file_type in hs3files:
-            FC = loadHS3curve(self.filemetadata, curveidx)
+            FC = loadHS3curve(self.filemetadata, curveidx, bool_correct_overshoot=False)
         elif file_type in ibwfiles:
             FC = loadIBWcurve(self.filemetadata, curveidx)
         elif file_type in ARDFfiles:
             FC = loadARDFcurve(self.filemetadata, curveidx)
         return FC
 
-    def getcurve(self, curveidx):
+    def getcurve(self, curveidx, bool_correct_overshoot=False):
         """
         Function used to load a single curve from a file.
 
@@ -104,14 +108,20 @@ class UFF:
             - IBW --> .ibw
             - ARDF --> .ARDF
 
-
                 Parameters:
                         curveidx (int): Index of curve to load.
+                        bool_correct_overshoot (bool): Flag indicating whether to correct overshoot.
 
                 Returns:
                         FC (utils.forcecurve.ForceCurve): ForceCurve object containing the force curve data.
         """
+        # Check if bool_correct_overshoot changed state
+        if self.bool_correct_overshoot != bool_correct_overshoot:
+            self._curve_cache = None  # Clear cache if correction state changes
+        
+        self.bool_correct_overshoot = bool_correct_overshoot
         file_type = self.filemetadata['file_type']
+        
         if file_type in jpkfiles:
             with open(self.filemetadata['file_path'], 'rb') as file:
                 afmfile = ZipFile(file)
@@ -126,27 +136,19 @@ class UFF:
         elif file_type in ufffiles:
             FC = loadUFFcurve(self.filemetadata)
         elif file_type in psnexfiles:
-            FC = loadPSNEXcurve(self.filemetadata, curveidx)
+            if self._curve_cache is not None and self.bool_correct_overshoot == bool_correct_overshoot:
+                # If curve is already cached with same correction state, return it
+                FC = self._curve_cache
+            else:
+                FC = loadPSNEXcurve(self.filemetadata, curveidx, bool_correct_overshoot=self.bool_correct_overshoot)
+                self._curve_cache = FC
         elif file_type in hs3files:
-            FC = loadHS3curve(self.filemetadata, curveidx)
+            FC = loadHS3curve(self.filemetadata, curveidx, bool_correct_overshoot=bool_correct_overshoot)
         elif file_type in ibwfiles:
             FC = loadIBWcurve(self.filemetadata, curveidx)
         elif file_type in ARDFfiles:
             FC = loadARDFcurve(self.filemetadata, curveidx)
-
-        '''
-        if file_type in jpkfiles:
-            with open(self.filemetadata['file_path'], 'rb') as file:
-                afmfile = ZipFile(file)
-                FC = self._loadcurve(curveidx, afmfile, file_type)
-        elif file_type in jpk_h5_file:
-            FC = self._loadcurve(curveidx, None, file_type)
-        elif file_type in ufffiles:
-            FC = self._loadcurve(None, None, file_type)
-        if file_type in list(nanoscfiles) + \
-                [psnexfiles] + [hs3files] + [ibwfiles] + [ARDFfiles]:
-            FC = self._loadcurve(curveidx, None, file_type)
-        '''
+        
         return FC
 
     def getpiezoimg(self):
@@ -157,7 +159,9 @@ class UFF:
 
         Supported formats:
             - JPK --> .jpk-force-map, .jpk-qi-data
+            - JPK H5 --> .h5-jpk
             - NANOSCOPE --> .spm, .pfc
+            - PS-NEX --> .tdms
             - Asylum Research --> .ARDF
 
                 Parameters: None
@@ -172,6 +176,9 @@ class UFF:
             self.piezoimg = computeJPKPiezoImg_h5(self)
         elif file_type[1:].isdigit() or file_type in nanoscfiles:
             self.piezoimg = loadNANOSCimg(self.filemetadata)
+        elif file_type in psnexfiles:
+            from .ps_nex.loadpsneximg import loadPSNEXimg
+            self.piezoimg, _ = loadPSNEXimg(self)
         elif file_type in ARDFfiles:
             self.piezoimg = loadARDFimg(self.filemetadata)
         return self.piezoimg

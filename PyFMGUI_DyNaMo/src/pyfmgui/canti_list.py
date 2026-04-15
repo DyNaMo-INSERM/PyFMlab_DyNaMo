@@ -68,6 +68,13 @@ canti_list = {
         'CantileverWidthLegs': 28,
         'kNominal': 0.08,
         'cantType': 'Vshaped'
+    },
+        'PFQNM-LC-V2': {
+        'CantileverLength': 52,
+        'CantileverWidth': 20,
+        'CantileverWidthLegs': 0,
+        'kNominal': 0.1,
+        'cantType': 'Paddle'
     }
 
 }

@@ -1,230 +1,154 @@
 
-from struct import unpack
-from itertools import groupby
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Aug  7 18:07:01 2025
+Edited on : Apr 7 2026
+
+@author: Lorenzo Villanueva
+"""
+# File containing the loadPSNEXcurve function,
+
 import numpy as np
 from nptdms import TdmsFile
 
 from ..utils.forcecurve import ForceCurve
 from ..utils.segment import Segment
+from scipy.stats import linregress
+ 
 
-
-def loadHS3curve(file_metadata, curve_index=0):
+def calculate_velocity(displacement_um, rel_time):
     """
-    Load the single force‐curve segments from an HS3 file into a ForceCurve object.
+    Calculate the average velocity from displacement_um and time arrays using linear regression.
 
-    Parameters
-    ----------
-    file_metadata : dict
-        Must contain:
-          - 'file_path'
-          - 'height_channel_key'   (== 'Piezo')
-          - 'deflection_channel_key' (== 'Deflection')
-          - 'Piezo_data', 'Deflection_data'   (numpy arrays)
-          - 'approach_points', 'dwell_points', 'retract_points'
-          - 'reading_sample_rate_Hz'
-    curve_index : int
-        Only one curve per HS3 file; unused but kept for signature compatibility.
+    Parameters:
+        displacement_um (np.ndarray): Displacement values (in micrometers).
+        rel_time (np.ndarray): Time values (in seconds).
 
-    Returns
-    -------
-    force_curve : ForceCurve
+    Returns:
+        float: Average velocity (slope) in µm/s.
     """
-    file_id               = file_metadata['file_id']
-    height_channel_key    = file_metadata['height_channel_key']
-    deflection_channel_key= file_metadata['deflection_channel_key']
-    fs                    = file_metadata['reading_sample_rate_Hz']
-    dt                    = 1.0 / fs
+    displacement_um = -displacement_um * 1e6  # Convert to micrometers (for compatibility with previous code)
+    # deriv_displacement = np.gradient(displacement_um, rel_time)
+    slope, intercept, _, _, _= linregress(rel_time, displacement_um)
+    return slope
 
-    tdms_file_hs3 = TdmsFile.open(file_metadata['file_path'])
-    
-    height_v = tdms_file_hs3['Force Curve'][height_channel_key][:]
-    deflection = tdms_file_hs3['Force Curve'][deflection_channel_key][:]
-    sensitivity_nm_per_V = file_metadata['sensitivity_nm_per_V']
-    piezo_gain = file_metadata['piezo_gain']
-    height_m = height_v * sensitivity_nm_per_V * piezo_gain * -1e-9  # convert to meters
-    #height_m =np.flip(height_m)
 
-    # how many points in each segment?
-    n_app  = int(file_metadata['approach_points'])
-    n_con  = int(file_metadata['dwell_points'])
-    n_ret  = int(file_metadata['retract_points'])
+def loadHS3curve(file_metadata, curve_index=0, bool_correct_overshoot=False):
+    """
+    Function used to load the data of a single force curve from a HS3 file.
 
-    # 5) Build ForceCurve
+            Parameters:
+                    file_metadata (dict): Dictionary containing the file metadata.
+                    curve_index (int): Index of curve to load.
+                    bool_correct_overshoot (bool): Flag indicating whether to correct overshoot.
+
+            Returns:
+                    force_curve (utils.forcecurve.ForceCurve): ForceCurve object containing the loaded data.
+    """
+    file_id = file_metadata['file_path']
+    # curve_properties = file_metadata['curve_properties']
+    # height_channel_key = file_metadata['height_channel_key']
+    # deflection_chanel_key = file_metadata['deflection_chanel_key']
+    tdms_file = TdmsFile.open(file_metadata['file_path'])  # alternative TdmsFile.read(path1+fname[ibead])
+    main_group = tdms_file.groups()[0].name
+
+    channels = tdms_file[main_group].channels()
+    i = 0 
+    channel_dict = {}
+    channel_names_dict = {}
+    for channel in channels:
+        channel_dict[channel.name] = tdms_file[main_group][channel.name][:]  
+        channel_names_dict[i] = tdms_file[main_group][channel.name].name
+        i += 1
+
+    # dt = tdms_file[main_group][channel_names_dict[0]].properties["wf_increment"]
+    # time_s = tdms_file[main_group][channel_names_dict[0]].time_track()
+
+
     force_curve = ForceCurve(curve_index, file_id)
 
-    # sanity check
-    total = n_app + n_con + n_ret
-    assert total == len(height_m), \
-        f"Expected total {total} samples, got {len(height_m)}"
-    # segment durations in ms
-    S1 = file_metadata['S1_ms']
-    S2 = file_metadata['S2_ms']
-    S3 = file_metadata['S3_ms']
-    S4 = file_metadata['S4_ms']
-    S5 = file_metadata['S5_ms']
-    # decimation factors
+    # curve_indices = file_metadata["Entry_tot_nb_curve"] 
+    # num_segment = file_metadata['num_segments']
+
+    # Always load all segments initially
+    num_segment_arr = [0, 1, 2]
+    
+    z_piezo_sens_m = file_metadata['invOLS_nm_per_V'] * 1e-9
+    deflection = channel_dict['Deflection']
+    height = channel_dict['Piezo'] * z_piezo_sens_m
+
     dec_app = file_metadata['dec_factor_approach']
     dec_con = file_metadata['dec_factor_contact']
     dec_ret = file_metadata['dec_factor_retract']
 
-    V1 = file_metadata['V1']
-    V3 = file_metadata['V3']
-    V5 = file_metadata['V5']
-    # 6) Define the time boundaries in seconds
-    t_app_end = (S1 + S2) * 1e-3
-    t_con_end = t_app_end + S3 * 1e-3
-    t_ret_end = t_con_end + (S4 + S5) * 1e-3
+    app_ms = file_metadata['S1_ms'] + file_metadata['S2_ms']
+    con_ms = file_metadata['S3_ms']
+    ret_ms = file_metadata['S4_ms'] + file_metadata['S5_ms']
 
-    # 7) Define segments
-    segments = [
-        ('App', 0,       n_app,    0.0,      t_app_end),
-        ('Con', n_app,   n_app+n_con, t_app_end, t_con_end),
-        ('Ret', n_app+n_con, n_app+n_con+n_ret, t_con_end, t_ret_end),
-    ]
+    dec_arr = np.array([dec_app, dec_con, dec_ret])
+    seg_arr = np.array([app_ms, con_ms, ret_ms]) * 1e-3
 
-    # 8) Loop over segments
-    for segment_id, (seg_type, start, end, t0, t1) in enumerate(segments):
-        seg = Segment(file_id, segment_id, seg_type)
+    SR = file_metadata['reading_sample_rate_Hz']
+    rel_SR = SR / dec_arr
+    file_metadata['relative_sr'] = dec_arr / SR
+    sizes_per_seg = (rel_SR * seg_arr).astype(int)
+    start_indices = np.concatenate(([0], np.cumsum(sizes_per_seg[:-1])))
+    end_indices = start_indices + sizes_per_seg
+    rel_period = 1 / rel_SR
 
-        # time vector for this segment
-        times = np.linspace(0, t1-t0, end - start, endpoint=False)
+    length_deflection = len(deflection)
+    if end_indices[-1] != length_deflection:
+        end_indices[-1] = length_deflection
+    file_metadata['final_nb_points'] = np.cumsum(sizes_per_seg[:-1])
 
-        # formatted data
-        seg.segment_formated_data = {
-            'time': times,
-            height_channel_key: height_m[start:end],
-            'vDeflection': deflection[start:end]
-        }
+    # Find maximum deflection for overshoot correction (like PSNEX)
+    max_deflection_index = np.nanargmax(deflection)
 
-        # minimal metadata for HS3
-        seg.segment_metadata = {
-            f"segment_{segment_id}_nb_points_cal": end - start,
-            f"segment_{segment_id}_duration_(s)": t1 - t0,
-            f"segment_{segment_id}_sampling_rate_(Hz)": fs / (dec_app if seg_type=='App'
-                                                            else dec_con if seg_type=='Con'
-                                                            else dec_ret),
-            'baseline_measured' : False
-        }
+    for idx in range(len(num_segment_arr)):
+        segment_id = num_segment_arr[idx]
+        start_pos, end_pos = start_indices[idx], end_indices[idx]
 
-        seg.nb_point = end - start
-        seg.nb_col   = len(seg.segment_formated_data)
-        
+        segment_type = "App" if segment_id == 0 else "Ret" if segment_id == 2 else "Con" if segment_id == 1 else "Modulation"
 
-        
-        seg.force_setpoint = V3
-        
-        seg.sampling_rate = seg.segment_metadata[f"segment_{segment_id}_sampling_rate_(Hz)"]
-        seg.z_displacement = height_m[end-1]-height_m[start]
-        seg.velocity =  seg.z_displacement/times[-1]
+        # Apply overshoot correction to approach segment (like PSNEX)
+        if segment_type == "App" and bool_correct_overshoot:
+            if max_deflection_index < end_pos and max_deflection_index >= start_pos:
+                # Adjust approach segment to end at max deflection
+                end_pos = max_deflection_index
+                # Adjust subsequent indices if retract segment exists
+                if idx + 1 < len(num_segment_arr):
+                    start_indices[idx + 1] = max_deflection_index + 1
 
+        # Skip contact segment if doing overshoot correction
+        if segment_type == "Con" and bool_correct_overshoot:
+            continue
 
-        # assign into correct list
-        if seg_type == 'App':
-            force_curve.extend_segments.append((segment_id, seg))
-        elif seg_type == 'Con':
-            force_curve.pause_segments.append((segment_id, seg))
-        elif seg_type == 'Ret':
-            force_curve.retract_segments.append((segment_id, seg))
-        else:
-            force_curve.modulation_segments.append((segment_id, seg))
+        segment_formated_data = {}
+        segment_formated_data['time'] = np.arange(end_pos - start_pos) * rel_period[idx]
+        segment_formated_data['Piezo'] = -height[start_pos:end_pos]
+        segment_formated_data['vDeflection'] = -deflection[start_pos:end_pos]
+
+        segment = Segment(file_id, segment_id, segment_type)
+        segment.segment_formated_data = segment_formated_data
+        segment.nb_point = end_pos - start_pos
+        segment.nb_col = len(segment_formated_data.keys())
+
+        segment.velocity = -calculate_velocity(segment_formated_data['Piezo'], segment_formated_data["time"])
+        segment.zheight = segment_formated_data['Piezo'][-1] if len(segment_formated_data['Piezo']) > 0 else 0
+        segment.vdeflection = segment_formated_data['vDeflection'][-1] if len(segment_formated_data['vDeflection']) > 0 else 0
+        segment.sampling_rate = rel_SR[idx]
+        segment.z_displacement = height[-1]
+        segment.force = deflection[start_pos:end_pos] * file_metadata['defl_sens_nmbyV'] * 1e-09 * file_metadata['spring_const_Nbym']
+
+        if segment_type == "App":
+            force_curve.extend_segments.append((int(segment.segment_id), segment))
+        elif segment_type == "Ret":
+            force_curve.retract_segments.append((int(segment.segment_id), segment))
+        elif segment_type == "Con":
+            force_curve.pause_segments.append((int(segment.segment_id), segment))
+        elif segment_type == "Modulation":
+            force_curve.modulation_segments.append((int(segment.segment_id), segment))
 
     return force_curve
-
-
-# def loadHS3curve(file_metadata, curve_index=0):
-#     """
-#     Load the single force‐curve segments from an HS3 file into a ForceCurve object.
-
-#     Parameters
-#     ----------
-#     file_metadata : dict
-#         Must contain:
-#           - 'file_path'
-#           - 'height_channel_key'   (== 'Piezo')
-#           - 'deflection_channel_key' (== 'Deflection')
-#           - 'Piezo_data', 'Deflection_data'   (numpy arrays)
-#           - 'approach_points', 'dwell_points', 'retract_points'
-#           - 'reading_sample_rate_Hz'
-#     curve_index : int
-#         Only one curve per HS3 file; unused but kept for signature compatibility.
-
-#     Returns
-#     -------
-#     force_curve : ForceCurve
-#     """
-#     file_id               = file_metadata['file_id']
-#     height_channel_key    = file_metadata['height_channel_key']
-#     deflection_channel_key= file_metadata['deflection_channel_key']
-#     fs                    = file_metadata['reading_sample_rate_Hz']
-#     dt                    = 1.0 / fs
-
-#     tdms_file_hs3 = TdmsFile.open(file_metadata['file_path'])
-    
-#     height_v = tdms_file_hs3['Force Curve'][height_channel_key][:]
-#     deflection = tdms_file_hs3['Force Curve'][deflection_channel_key][:]
-#     sensitivity_nm_per_V = file_metadata['sensitivity_nm_per_V']
-#     piezo_gain = file_metadata['piezo_gain']
-#     height_m = height_v * sensitivity_nm_per_V * piezo_gain * 1e-9  # convert to meters
-    
-#     # how many points in each segment?
-#     n_app  = int(file_metadata['approach_points'])
-#     n_con  = int(file_metadata['dwell_points'])
-#     n_ret  = int(file_metadata['retract_points'])
-
-#     # build ForceCurve
-#     force_curve = ForceCurve(curve_index, file_id)
-
-#     # cumulative indices
-#     idx_app_end = n_app
-#     idx_con_end = n_app + n_con
-#     idx_ret_end = n_app + n_con + n_ret
-
-#     # sanity check
-#     assert idx_ret_end == len(height_m), \
-#         f"Expected total {idx_ret_end} samples, found {len(height_m)}"
-
-#     # define segments
-#     segments = [
-#       ('App', 0,        idx_app_end),
-#       ('Con', idx_app_end, idx_con_end),
-#       ('Ret', idx_con_end, idx_ret_end)
-#     ]
-
-#     for segment_id, (seg_type, start, end) in enumerate(segments):
-#         seg = Segment(file_id, segment_id, seg_type)
-
-#         # time vector for this segment
-#         duration = (end - start) * dt
-#         times = np.linspace(0, duration, end - start, endpoint=False)
-
-#         # formatted data
-#         seg.segment_formated_data = {
-#             'time': times,
-#             height_channel_key: height_m[start:end],
-#             'vDeflection':       deflection[start:end]
-#         }
-
-#         # minimal metadata for HS3—just point counts and sample rate
-#         seg.segment_metadata = {
-#             f"segment_{segment_id}_nb_points_cal": end - start,
-#             f"segment_{segment_id}_duration_(s)": duration,
-#             f"segment_{segment_id}_sampling_rate_(Hz)": fs,
-#         }
-
-#         seg.nb_point  = end - start
-#         seg.nb_col    = len(seg.segment_formated_data)
-
-#         # assign into correct ForceCurve list
-#         if seg_type == 'App':
-#             force_curve.extend_segments.append((segment_id, seg))
-#         elif seg_type == 'Con':
-#             force_curve.pause_segments.append((segment_id, seg))
-#         elif seg_type == 'Ret':
-#             force_curve.retract_segments.append((segment_id, seg))
-#         else:
-#             force_curve.modulation_segments.append((segment_id, seg))
-
-#     return force_curve
-
-
 

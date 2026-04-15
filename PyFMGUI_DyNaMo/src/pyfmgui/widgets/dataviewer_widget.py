@@ -42,6 +42,20 @@ class DataViewerWidget(QtWidgets.QWidget):
         self.curve_x.sigValueChanged.connect(self.updateCurve)
         self.curve_y = self.params.child('Display Options').child('Curve Y axis')
         self.curve_y.sigValueChanged.connect(self.updateCurve)
+        self.correct_app = self.params.child('Display Options').child('TDMS corrrect app')
+        self.correct_app.sigValueChanged.connect(self.updateCurve)
+        
+        # Hide PSNEX/HS3-specific parameters by default
+        display_options = self.params.child('Display Options')
+        for param_name in ['TDMS show App', 'TDMS show Con', 'TDMS show Ret']:
+            try:
+                display_options.child(param_name).hide()
+            except:
+                pass
+        try:
+            display_options.child('TDMS corrrect app').hide()
+        except:
+            pass
 
         self.paramTree = ParameterTree()
         self.paramTree.setParameters(self.params, showTop=False)
@@ -91,6 +105,29 @@ class DataViewerWidget(QtWidgets.QWidget):
             if self.session.hertz_fit_widget:
                 self.session.hertz_fit_widget.updatePlots()
 
+    def update_param_visibility(self):
+        """Update visibility of PSNEX/HS3-specific parameters based on current file type"""
+        if not self.session.current_file:
+            return
+        
+        file_type = self.session.current_file.filemetadata.get('file_type', '')
+        is_psnex_or_hs3 = cts.is_psnex_or_hs3_file(file_type)
+        
+        display_options = self.params.child('Display Options')
+        
+        # Parameters that are specific to PSNEX/HS3 files
+        psnex_hs3_params = ['TDMS show App', 'TDMS show Con', 'TDMS show Ret', 'TDMS corrrect app']
+        
+        for param_name in psnex_hs3_params:
+            try:
+                param = display_options.child(param_name)
+                if is_psnex_or_hs3:
+                    param.show()
+                else:
+                    param.hide()
+            except:
+                pass  # Parameter might not exist in all cases
+
     def closeEvent(self, evnt):
         self.session.data_viewer_widget = None
     
@@ -98,6 +135,14 @@ class DataViewerWidget(QtWidgets.QWidget):
         self.tree.clear()
         self.updatePlots(None)
         self.metadata_tree.setData(data="No loaded data")
+        
+        # Reset PSNEX/HS3-specific parameters to hidden (default state)
+        display_options = self.params.child('Display Options')
+        for param_name in ['TDMS show App', 'TDMS show Con', 'TDMS show Ret', 'TDMS corrrect app']:
+            try:
+                display_options.child(param_name).hide()
+            except:
+                pass
     
     def updateTable(self):
         self.tree.clear()
@@ -110,28 +155,51 @@ class DataViewerWidget(QtWidgets.QWidget):
         pass
     
     def make_plot(self, force_curve):
+        # Safety check - ensure p1 has been initialized
+        if not hasattr(self, 'p1'):
+            return
+            
         self.p1.clear()
         self.p1.showGrid(x=True, y=True)
         self.p1.enableAutoRange()
         self.p1.addLegend((100, 30))
         xkey = self.curve_x.value()
         ykey = self.curve_y.value()
+        show_app0 = self.params.child('Display Options').child('TDMS show App').value()
+        show_ret = self.params.child('Display Options').child('TDMS show Ret').value()
+        show_con = self.params.child('Display Options').child('TDMS show Con').value()
+        self.correct_app = self.params.child('Display Options').child('TDMS corrrect app')
+
         t0 = 0
         fc_segments = force_curve.get_segments()
         n_segments = len(fc_segments)
-        ext_data = force_curve.extend_segments[-1][1]
+        ext_data = force_curve.extend_segments[0][1]
         ret_data = force_curve.retract_segments[-1][1]
         t_offset = np.abs(ext_data.zheight[-1] - ret_data.zheight[0]) / (ext_data.velocity * -1e-9)
         dt = np.abs(ext_data.time[1] - ext_data.time[0])
         if t_offset > 2*dt:
             ret_data.time = ret_data.time + t_offset
         for i, (seg_id, segment) in enumerate(fc_segments):
+            # Only plot if selected in settings
+            # print (f'segment type: {segment.segment_type}, id: {seg_id}')
+            if segment.segment_type == "App" and seg_id == 0 and not show_app0:
+                print('hide app0 segment')
+                continue
+            if segment.segment_type == "Ret" and seg_id == 2 and not show_ret:
+                print ('hide ret2 segment')
+                continue
+            if segment.segment_type == "Con" and seg_id == 1 and not show_con:
+                print ('hide contact segment')
+                continue
             x = getattr(segment, xkey)
             x_units = 'm'
             if xkey == "time":
                 x = x + t0
-                t0 = x[-1] if x.size > 0 else 0
-                x_units = 's'
+                if x.size > 0:
+                    t0 = x[-1]
+                    x_units = 's'
+                else:
+                    print('x has no size')
             y = getattr(segment, ykey)
             self.p1.plot(x, y, pen=(i,n_segments), name=f"{segment.segment_type} {seg_id}")
         self.p1.setLabel('left', ykey, 'm')
@@ -139,13 +207,20 @@ class DataViewerWidget(QtWidgets.QWidget):
         self.p1.setTitle(f"{ykey}-{xkey}")
     
     def updateCurve(self):
-        idx = int(self.session.current_curve_index)
+        # Ensure GUI is properly initialized before proceeding
+        if not hasattr(self, 'p1') or self.session.current_file is None:
+            return
+            
+        # z_sensor_delay = self.params.child('Display Options').child('Z Sensor Delay').value()
+        # bool_correct_overshoot = self.params.child('Display Options').child('Correct Overshoot').value()
+
+        idx = self.session.current_curve_index
         height_channel = self.session.current_file.filemetadata['height_channel_key']
         if self.session.global_involts is None:
             deflection_sens = self.session.current_file.filemetadata['defl_sens_nmbyV'] / 1e9
         else:
             deflection_sens = self.session.global_involts
-        force_curve = self.session.current_file.getcurve(idx)
+        force_curve = self.session.current_file.getcurve(idx, bool_correct_overshoot = self.correct_app.value())
         force_curve.preprocess_force_curve(deflection_sens, height_channel)
         if self.session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
             force_curve.shift_height()
@@ -163,6 +238,9 @@ class DataViewerWidget(QtWidgets.QWidget):
 
         self.l.clear()
         self.session.current_file = self.session.loaded_files[file_id]
+        
+        # Update parameter visibility based on file type
+        self.update_param_visibility()
 
         if self.session.current_file.isFV:
             self.l.addItem(self.plotItem)
@@ -193,6 +271,13 @@ class DataViewerWidget(QtWidgets.QWidget):
                 rows, cols = shape[0], shape[1]
                 curve_coords = np.arange(cols*rows).reshape((cols, rows))
                 curve_coords = np.rot90(np.fliplr(curve_coords))
+            
+            elif self.session.current_file.filemetadata['file_type'] in cts.psnex_file_extension:
+                img = self.session.current_file.piezoimg
+                self.plotItem.setTitle("Piezo Height (μm)")
+                shape = img.shape
+                rows, cols = shape[0], shape[1]
+                curve_coords = np.arange(cols*rows).reshape((cols, rows))
 
             elif self.session.current_file.filemetadata['file_type'] in cts.jpk_h5_file:
                 #img = self.session.current_file.piezoimg

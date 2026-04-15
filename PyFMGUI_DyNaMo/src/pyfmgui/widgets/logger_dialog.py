@@ -1,4 +1,5 @@
 import sys
+import os
 
 from PyQt5 import QtWidgets
 
@@ -40,7 +41,9 @@ class LoggerDialog(QtWidgets.QDialog, QtWidgets.QPlainTextEdit):
         self._button.clicked.connect(self.exportLogs)
 
     def exportLogs(self):
-        name, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save File", '/', '.txt')
-        with open(name, 'w') as file:
-            text = self.logTextBox.widget.toPlainText()
-            file.write(text)    
+        default_path = os.path.join(os.path.expanduser("~"), "export_logs.txt")
+        name, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save File", default_path, '.txt')
+        if name:
+            with open(name, 'w') as file:
+                text = self.logTextBox.widget.toPlainText()
+                file.write(text)    

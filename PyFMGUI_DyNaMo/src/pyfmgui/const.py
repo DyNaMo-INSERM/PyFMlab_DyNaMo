@@ -6,13 +6,23 @@ from .canti_list import canti_list
 # v.x.0.0 --> Major release
 # v.0.x.0 --> Minor release
 # v.0.0.x --> Bug fix
-pyFM_VERSION = "PyFMLab v.1.0.2"
+pyFM_VERSION = "PyFMLab v.1.0.2.1"
 
 # FILE CONSTANTS ##################################################
 jpk_file_extensions = ('jpk-force', 'jpk-force-map', 'jpk-qi-data','jpk-qi-series')
 nanoscope_file_extensions = ('spm', 'pfc')
 jpk_h5_file = ('h5-jpk','JPK MultiScan Force Map Spectroscopy','JPK MultiScan Force Spectroscopy')                                        # As in 18-08-2025
 asylum_file_extensions = ('ARDF', 'ibw')
+psnex_file_extension = ('psnex', 'tdms','PSNEX.tdms')
+hs3_file_extension = ('HS3.tdms',)
+
+
+# HELPER FUNCTIONS ##################################################
+
+def is_psnex_or_hs3_file(file_type):
+    """Check if file type is PSNEX/TDMS or HS3 format"""
+    return file_type in psnex_file_extension or file_type in hs3_file_extension
+
 
 # ANALYSIS CONSTANTS ##############################################
 available_geometries = ['paraboloid', 'cone', 'pyramid']
@@ -35,13 +45,13 @@ class AnalysisParams(pTypes.GroupParameter):
             {'name': 'Height Channel', 'type': 'str', 'value': 'measuredHeight', 'readonly':True},
             {'name': 'Spring Constant', 'type': 'float', 'value': None, 'units':'N/m'},
             {'name': 'Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V'},
-            {'name': 'Contact Model', 'type': 'list', 'limits': available_geometries},
+            {'name': 'Contact Model', 'type': 'list', 'limits': available_geometries, 'value': available_geometries[0]},
             {'name': 'Tip Angle', 'type': 'float', 'value': 35, 'units':'°'},
             {'name': 'Tip Radius', 'type': 'float', 'value': 75, 'units':'nm'},
             {'name': 'Tip Area', 'type': 'float', 'value': None},
-            {'name': 'Curve Segment', 'type': 'list', 'limits':['extend', 'retract']},
+            {'name': 'Curve Segment', 'type': 'list', 'limits':['extend', 'retract'], 'value': 'extend'},
             {'name': 'Correct Tilt', 'type': 'bool', 'value':False},
-            {'name': 'Offset Type', 'type': 'list', 'limits': ['percentage', 'absolute']},
+            {'name': 'Offset Type', 'type': 'list', 'limits': ['percentage', 'absolute'], 'value': 'percentage'},
             {'name': 'Perc. Min Offset', 'type': 'float', 'value': 0},
             {'name': 'Perc. Max Offset', 'type': 'float', 'value': 20},
             {'name': 'Abs. Min Offset', 'type': 'float', 'value': 10, 'units':'nm'},
@@ -50,7 +60,7 @@ class AnalysisParams(pTypes.GroupParameter):
 
         if self.mode == "microrheo":
             self.addChildren([
-                {'name': 'Method', 'type': 'list', 'limits':['FFT', 'Sine Fit']},
+                {'name': 'Method', 'type': 'list', 'limits':['FFT', 'Sine Fit'], 'value': 'FFT'},
                 {'name': 'Computed Working Indentation', 'type': 'float', 'value': None, 'units':'nm', 'readonly':True},
                 {'name': 'Working Indentation', 'type': 'float', 'value': None, 'units':'nm'},
                 {'name': 'Overwrite Working Ind.', 'type': 'bool', 'value':False},
@@ -95,10 +105,10 @@ class HertzFitParams(pTypes.GroupParameter):
         pTypes.GroupParameter.__init__(self, **opts)
         self.addChildren([
             {'name': 'Poisson Ratio', 'type': 'float', 'value': 0.5},
-            {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi']},
+            {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi'], 'value': 'RoV'},
             {'name': 'PoC Window', 'type': 'int', 'value': 350, 'units':'nm'},
             {'name': 'Sigma', 'type': 'int', 'value': 0},
-            {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force']},
+            {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force'], 'value': 'full'},
             {'name': 'Min Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Max Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Min Force', 'type': 'float', 'value': None, 'units':'nN'},
@@ -166,10 +176,10 @@ class TingFitParams(pTypes.GroupParameter):
         pTypes.GroupParameter.__init__(self, **opts)
         self.addChildren([
             {'name': 'Poisson Ratio', 'type': 'float', 'value': 0.5},
-            {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi']},
+            {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi'], 'value': 'RoV'},
             {'name': 'PoC Window', 'type': 'int', 'value': 350, 'units':'nm'},
             {'name': 'Sigma', 'type': 'int', 'value': 0},
-            {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force']},
+            {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force'], 'value': 'full'},
             {'name': 'Min Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Max Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Min Force', 'type': 'float', 'value': None, 'units':'nN'},
@@ -177,8 +187,8 @@ class TingFitParams(pTypes.GroupParameter):
             {'name': 'Correct Viscous Drag', 'type': 'bool', 'value':False},
             {'name': 'Poly. Order', 'type': 'int', 'value':2},
             {'name': 'Ramp Speed', 'type': 'float', 'value':0, 'units': 'um/s'},
-            {'name': 'Model Type', 'type': 'list', 'limits': ['analytical', 'numerical']},
-            {'name': 'Estimate V0t & V0r', 'type': 'bool', 'value': False},
+            {'name': 'Model Type', 'type': 'list', 'limits': ['analytical', 'numerical'], 'value': 'analytical'},
+            {'name': 'Estimate V0t & V0r', 'type': 'bool', 'value': True}, 
             {'name': 't0', 'type': 'int', 'value': 1, 'units':'s'},
             {'name': 'Downsample Pts.', 'type': 'int', 'value': 300},
             {'name': 'Fit Line to non contact', 'type': 'bool', 'value':False},
@@ -188,7 +198,7 @@ class TingFitParams(pTypes.GroupParameter):
             {'name': 'Init E0', 'type': 'int', 'value': 1000, 'units':'Pa'},
             {'name': 'Init tc', 'type': 'float', 'value': 0, 'units':'s'},
             {'name': 'Init f0', 'type': 'float', 'value': 0, 'units':'nN'},
-            {'name': 'Viscous Drag', 'type': 'float', 'value': 0, 'units':'pN/nm·s'},
+            {'name': 'Viscous Drag', 'type': 'float', 'value': 0, 'units':'pN/nm·s'}, 
             {'name': 'Auto Init  Fluid. Exp.', 'type': 'bool', 'value':True},
             {'name': 'Init Fluid. Exp.', 'type': 'float', 'value': 0.20},
             {'name': 'Contact Offset', 'type': 'float', 'value': 1, 'units':'um'},
@@ -274,7 +284,7 @@ class CantileverParams(pTypes.GroupParameter):
             {'name': 'Length', 'type': 'float', 'value': 0, 'units':'um'},
             {'name': 'Width', 'type': 'float', 'value': 0, 'units':'um'},
             {'name': 'Width Legs', 'type': 'float', 'value': 0, 'units':'um'},
-            {'name': 'nominal k', 'type': 'float', 'value': 0, 'units':'pN/nm'}
+            {'name': 'nominal k', 'type': 'float', 'value': 0, 'units':'N/m'}
         ])
 
         self.cani_id = self.param('Canti Id')
@@ -293,19 +303,25 @@ class CantileverParams(pTypes.GroupParameter):
         else:
             print(f"Error: '{self.cani_id.value()}' not found in canti_list")
             
-            
   
-
-
 general_params = {'name': 'General Options', 'type': 'group', 'children': [
         {'name': 'Compute All Curves', 'type': 'bool', 'value': False},
-        {'name': 'Compute All Files', 'type': 'bool', 'value': False}
+        {'name': 'Compute All Files', 'type': 'bool', 'value': False},
+        {'name': 'TDMS corrrect app', 'type': 'bool', 'value': False}
     ]}
 
+
+
 plot_params = {'name': 'Display Options', 'type': 'group', 'children': [
-        {'name': 'Curve X axis', 'type': 'list', 'limits': ['zheight', 'time']},
-        {'name': 'Curve Y axis', 'type': 'list', 'limits': ['vdeflection', 'zheight']}
-    ]}
+    {'name': 'Curve X axis', 'type': 'list', 'limits': ['zheight', 'time'], 'value': 'zheight'},
+    {'name': 'Curve Y axis', 'type': 'list', 'limits': ['vdeflection', 'zheight'], 'value': 'vdeflection'},
+        {'name': 'TDMS show App', 'type': 'bool', 'value': True},
+        {'name': 'TDMS show Con', 'type': 'bool', 'value': True},
+        {'name': 'TDMS show Ret', 'type': 'bool', 'value': True},
+        # {'name': 'Z Sensor Delay', 'type': 'float', 'value': 1e-3, 'units': 's'},
+        {'name': 'TDMS corrrect app', 'type': 'bool', 'value': False}, # if true, take until the maximum deflection for the aproach curve.
+    ]
+}
 
 rheo_params = {'name': 'Analysis Params', 'type': 'group', 'children': [
         {'name': 'Height Channel', 'type': 'str', 'value': 'measuredHeight', 'readonly':True},
@@ -341,3 +357,10 @@ piezochar_params = [general_params, rheo_params]
 vdrag_params = [general_params, correction_params, rheo_params]
 
 microrheo_params = [general_params, correction_params, AnalysisParams(mode='microrheo', name='Analysis Params'), HertzFitParams(name='Hertz Fit Params')]
+
+# SADER API params ################################################
+SADER_API_version = 'Python API/0.20'
+SADER_API_type = 'text/xml'
+SADER_API_url = 'https://sadermethod.org/api/1.1/api.php'
+DEFAULT_SADER_USERNAME = 'dynamo'
+DEFAULT_SADER_PASSWORD = 'x$=Jsj*h'

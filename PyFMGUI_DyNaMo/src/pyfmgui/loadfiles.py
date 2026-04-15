@@ -19,7 +19,8 @@ def load_single_file(filepath):
             file.getpiezoimg()
         return (file_id, file)
     except Exception as error:
-        logger.info(f'Failed to load {filepath} with error: {error}')
+        logger.warning(f'Failed to load {filepath} with error: {error}')
+        return None
 
 def loadfiles(session, filelist, progress_callback, range_callback, step_callback):
     files_to_load = [path for path in filelist if path not in session.loaded_files_paths]
@@ -29,7 +30,14 @@ def loadfiles(session, filelist, progress_callback, range_callback, step_callbac
         # loaded_files = executor.map(load_single_file, files_to_load)
         futures = [executor.submit(load_single_file, filepath) for filepath in files_to_load]
         for future in concurrent.futures.as_completed(futures):
-            loaded_files.append(future.result())
+            try:
+                result = future.result()
+            except Exception as error:
+                logger.warning(f'Worker failed while loading a file with error: {error}')
+                continue
+            if result is None:
+                continue
+            loaded_files.append(result)
             count+=1
             progress_callback.emit(count)
     # loaded_files = list(loaded_files)
