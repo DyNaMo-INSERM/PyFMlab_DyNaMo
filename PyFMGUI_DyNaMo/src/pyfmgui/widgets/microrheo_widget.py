@@ -15,7 +15,7 @@ from pyfmgui.threading import Worker
 from pyfmgui.compute import compute
 from pyfmgui.widgets.get_params import get_params
 
-from pyfmrheo.utils.force_curves import get_poc_RoV_method, get_poc_regulaFalsi_method
+from pyfmrheo.utils.force_curves import get_poc_RoV_method, get_poc_regulaFalsi_method,correct_tilt,correct_offset
 
 class MicrorheoWidget(QtWidgets.QWidget):
     def __init__(self, session, parent=None):
@@ -23,6 +23,7 @@ class MicrorheoWidget(QtWidgets.QWidget):
         self.session = session
         self.methodkey = None
         self.current_file = None
+        self.offset_roi = None
         self.file_dict = {}
         self.session.microrheo_widget = self
         self.init_gui()
@@ -39,7 +40,7 @@ class MicrorheoWidget(QtWidgets.QWidget):
 
         self.pushButton = QtWidgets.QPushButton("computeButton")
         self.pushButton.setText("Compute")
-        self.pushButton.clicked.connect(self.do_hertzfit)
+        self.pushButton.clicked.connect(self.do_MR)
 
         self.combobox = QtWidgets.QComboBox()
         self.combobox.currentTextChanged.connect(self.file_changed)
@@ -114,7 +115,7 @@ class MicrorheoWidget(QtWidgets.QWidget):
         self.l.clear()
         self.l2.clear()
 
-    def do_hertzfit(self):
+    def do_MR(self):
         if not self.current_file:
             return
         if self.params.child('General Options').child('Compute All Files').value():
@@ -313,6 +314,7 @@ class MicrorheoWidget(QtWidgets.QWidget):
         spring_k = analysis_params.child('Spring Constant').value()
         deflection_sens = analysis_params.child('Deflection Sensitivity').value() / 1e9
         method = analysis_params.child('Method').value()
+        correct_tilt_flag = analysis_params.child('Correct Tilt').value()
 
         hertz_params = self.params.child('Hertz Fit Params')
         poc_method = hertz_params.child('PoC Method').value()
@@ -323,7 +325,6 @@ class MicrorheoWidget(QtWidgets.QWidget):
         force_curve.preprocess_force_curve(deflection_sens, height_channel)
         if self.session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
             force_curve.shift_height()
-        # force_curve_segments = force_curve.get_segments()
         modulation_segments = force_curve.modulation_segments
 
         if modulation_segments == []:
@@ -348,15 +349,27 @@ class MicrorheoWidget(QtWidgets.QWidget):
                             self.defl_results = curve_microrheo_result[4]
                 except Exception:
                     continue
+        #approach data
+        self.seg_data = force_curve.extend_segments[-1][1]
+        self.p7.plot(self.seg_data.zheight, self.seg_data.vdeflection)
         
-        ext_data = force_curve.extend_segments[-1][1]
-        self.p7.plot(ext_data.zheight, ext_data.vdeflection)
+        self.update_tilt_range()
+
+        # Perform tilt correction
+        if correct_tilt_flag:
+            self.seg_data.vdeflection = correct_tilt(
+                self.seg_data.zheight, self.seg_data.vdeflection, self.maxoffset, self.minoffset
+            )
+        else:
+            self.seg_data.vdeflection = correct_offset(
+                self.seg_data.zheight, self.seg_data.vdeflection, self.maxoffset, self.minoffset
+            )
 
         comp_PoC = [0, 0]
         if poc_method == 'RoV':
-            comp_PoC = get_poc_RoV_method(ext_data.zheight, ext_data.vdeflection, poc_win)
+            comp_PoC = get_poc_RoV_method(self.seg_data.zheight, self.seg_data.vdeflection, poc_win)
         else:
-            comp_PoC = get_poc_regulaFalsi_method(ext_data.zheight, ext_data.vdeflection, poc_sigma)
+            comp_PoC = get_poc_regulaFalsi_method(self.seg_data.zheight, self.seg_data.vdeflection, poc_sigma)
         
         if comp_PoC is not None:
             poc = [comp_PoC[0], 0]
@@ -364,10 +377,11 @@ class MicrorheoWidget(QtWidgets.QWidget):
             poc = [0, 0]
         
         force_curve.get_force_vs_indentation(poc, spring_k)
-        indapp = ext_data.indentation
-        forceapp = ext_data.force
+        indapp = self.seg_data.indentation
+        forceapp = self.seg_data.force
+        #NOTE: maxind Doesn't account for d0 from HertzFit but which is accounted in the export (w_ind) and in the G* calculation.
         maxind = indapp.max()*1e9
-        analysis_params.child('Computed Working Indentation').setValue(maxind)
+        analysis_params.child('Computed Working Ind.').setValue(maxind)
         self.p8.plot(indapp, forceapp)
         vertical_line = pg.InfiniteLine(pos=0, angle=90, pen='y', movable=False, label='Init d0', labelOpts={'color':'y', 'position':0.5})
         self.p8.addItem(vertical_line, ignoreBounds=True)
@@ -485,10 +499,13 @@ class MicrorheoWidget(QtWidgets.QWidget):
         self.p8.addLegend()
 
         style = pg.PlotDataItem(pen=None)
-        self.p8legend.addItem(style, f'Computed Working Ind.: {maxind:.2f} nm')
-        if not analysis_params.child('Overwrite Working Ind.').value():
-            analysis_params.child('Working Indentation').setValue(maxind)
-        
+
+        if analysis_params.child('Overwrite Working Ind.').value():
+            set_ind = analysis_params.child('Set Working Ind.').value()
+            self.p8legend.addItem(style, f'Set Working Ind.: {set_ind:.2f} nm')
+        else:
+            self.p8legend.addItem(style, f'Computed Working Ind.: {maxind:.2f} nm')
+
         self.l.addItem(self.p7)
         self.l.addItem(self.p8)
         self.l.nextRow()
@@ -500,6 +517,31 @@ class MicrorheoWidget(QtWidgets.QWidget):
         self.l.nextRow()
         self.l.addItem(self.p5)
         self.l.addItem(self.p6)
+
+    def update_tilt_range(self):
+        dataItems = self.p7.listDataItems()
+        analysis_params = self.params.child('Analysis Params')
+        offset_type = analysis_params.child('Offset Type').value()
+        if offset_type == 'percentage':
+            deltaz = self.seg_data.zheight.max() - self.seg_data.zheight.min()
+            maxperc = analysis_params.child('Perc. Max Offset').value() / 1e2
+            minperc = analysis_params.child('Perc. Min Offset').value() / 1e2
+            self.maxoffset = self.seg_data.zheight.min() + deltaz * maxperc
+            self.minoffset = self.seg_data.zheight.min() + deltaz * minperc
+        else:
+            self.maxoffset = analysis_params.child(
+                'Abs. Max Offset').value() / 1e9
+            self.minoffset = analysis_params.child(
+                'Abs. Min Offset').value() / 1e9
+        if self.offset_roi is not None:
+            self.p7.removeItem(self.offset_roi)
+        self.offset_roi = pg.LinearRegionItem(
+            brush=(50, 50, 200, 0), pen='w', movable=False)
+        self.offset_roi.setZValue(10)
+        self.offset_roi.setClipItem(dataItems[0])
+        self.p7.removeItem(self.offset_roi)
+        self.p7.addItem(self.offset_roi, ignoreBounds=True)
+        self.offset_roi.setRegion([self.minoffset, self.maxoffset])
 
     def updateParams(self):
         # Updates params related to the current file
@@ -513,3 +555,17 @@ class MicrorheoWidget(QtWidgets.QWidget):
             analysis_params.child('Deflection Sensitivity').setValue(self.current_file.filemetadata['defl_sens_nmbyV'])
         else:
             analysis_params.child('Deflection Sensitivity').setValue(self.session.global_involts)
+
+        analysis_params.child(
+            'Correct Tilt').sigValueChanged.connect(self.updatePlots)
+        analysis_params.child(
+            'Offset Type').sigValueChanged.connect(self.updatePlots)
+        analysis_params.child(
+            'Perc. Min Offset').sigValueChanged.connect(self.updatePlots)
+        analysis_params.child(
+            'Perc. Max Offset').sigValueChanged.connect(self.updatePlots)
+        analysis_params.child(
+            'Abs. Min Offset').sigValueChanged.connect(self.updatePlots)
+        analysis_params.child(
+            'Abs. Max Offset').sigValueChanged.connect(self.updatePlots)
+

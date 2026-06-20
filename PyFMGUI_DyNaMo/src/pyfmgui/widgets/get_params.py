@@ -18,7 +18,11 @@ def get_params(params, method):
         return param_dict
     if method in ("Microrheo", "MicrorheoSine"):
         param_dict['bcoef'] = analysis_params.child('B Coef').value()
-        param_dict['wc'] = analysis_params.child('Working Indentation').value() / 1e9 # nm
+        if analysis_params.child('Overwrite Working Ind.').value():
+            param_dict['wc'] = analysis_params.child('Set Working Ind.').value() / 1e9 # nm
+        else:
+            param_dict['wc'] = None
+
     param_dict['contact_model'] = analysis_params.child('Contact Model').value()
     if param_dict['contact_model'] == "paraboloid":
         param_dict['tip_param'] = analysis_params.child('Tip Radius').value() / 1e9 # nm

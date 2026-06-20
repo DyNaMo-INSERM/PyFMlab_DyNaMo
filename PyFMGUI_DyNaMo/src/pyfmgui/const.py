@@ -51,12 +51,17 @@ class AnalysisParams(pTypes.GroupParameter):
         if self.mode == "microrheo":
             self.addChildren([
                 {'name': 'Method', 'type': 'list', 'limits':['FFT', 'Sine Fit']},
-                {'name': 'Computed Working Indentation', 'type': 'float', 'value': None, 'units':'nm', 'readonly':True},
-                {'name': 'Working Indentation', 'type': 'float', 'value': None, 'units':'nm'},
+                {'name': 'Computed Working Ind.', 'type': 'float', 'value': None, 'units':'nm', 'readonly':True},
                 {'name': 'Overwrite Working Ind.', 'type': 'bool', 'value':False},
+                {'name': 'Set Working Ind.', 'type': 'float', 'value': 100.10, 'units':'nm'},
                 {'name': 'Max Frequency', 'type': 'int', 'value': None, 'units':'Hz'},
                 {'name': 'B Coef', 'type': 'float', 'value': None, 'units':'Ns/m'}
             ])
+            self.param('Set Working Ind.').show(False)
+
+            self.overwrite_wc = self.param('Overwrite Working Ind.')
+            self.overwrite_wc.sigValueChanged.connect(self.overwrite_wc_changed)
+            self.overwrite_wc_changed
         
         self.contact_model = self.param('Contact Model')
         self.contact_model.sigValueChanged.connect(self.contact_model_changed)
@@ -90,6 +95,14 @@ class AnalysisParams(pTypes.GroupParameter):
             self.param('Abs. Min Offset').show(True)
             self.param('Abs. Max Offset').show(True)
 
+    def overwrite_wc_changed(self):
+        if self.overwrite_wc.value():
+            self.param('Set Working Ind.').show(True)
+            #self.param('Computed Working Ind.').show(False)
+        else:
+            self.param('Set Working Ind.').show(False)
+            #self.param('Computed Working Ind.').show(True)
+
 class HertzFitParams(pTypes.GroupParameter):
     def __init__(self, **opts):
         pTypes.GroupParameter.__init__(self, **opts)
@@ -112,7 +125,6 @@ class HertzFitParams(pTypes.GroupParameter):
             {'name': 'Fit Line to non contact', 'type': 'bool', 'value':False},
             {'name': 'Init Slope', 'type': 'float', 'value': 0},
             {'name': 'Contact Offset', 'type': 'float', 'value': 1, 'units':'um'},
-
         ])
 
         self.poc_mode = self.param('PoC Method')
