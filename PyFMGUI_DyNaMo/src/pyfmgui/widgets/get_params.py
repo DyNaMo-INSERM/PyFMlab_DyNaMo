@@ -1,14 +1,15 @@
 def get_params(params, method):
     # Create dictionary to hold parameters
     param_dict = {}
-    
+
     # Define general parameters
     param_dict['compute_all_curves'] = params.child('General Options').child('Compute All Curves').value()
     param_dict['method'] = method
     analysis_params = params.child('Analysis Params')
     param_dict['height_channel'] = analysis_params.child('Height Channel').value()
-    param_dict['def_sens'] = analysis_params.child('Deflection Sensitivity').value() / 1e9
-    param_dict['k'] = analysis_params.child('Spring Constant').value()
+    #the K and deflection sensitivity are iniatlised in compute file using either the global values or the values from the piezo characterization file
+    #or directly from the the valeu from the individual file metadata.
+    
     if method in ("PiezoChar", "VDrag", "Microrheo", "MicrorheoSine"):
         param_dict['max_freq'] = analysis_params.child('Max Frequency').value()
     if method in ("VDrag", "Microrheo", "MicrorheoSine"):
@@ -73,6 +74,7 @@ def get_params(params, method):
         param_dict['poc_method'] = ting_params.child('PoC Method').value()
         param_dict['poc_win'] = ting_params.child('PoC Window').value() / 1e9 #nm
         param_dict['sigma'] = ting_params.child('Sigma').value()
+        param_dict['ret_force_mask'] = ting_params.child('Mask for Retract force').value()
         param_dict['max_ind'] = ting_params.child('Max Indentation').value() / 1e9 #nm
         param_dict['min_ind'] = ting_params.child('Min Indentation').value() / 1e9 #nm
         param_dict['max_force'] = ting_params.child('Max Force').value() / 1e9 #nN

@@ -86,10 +86,30 @@ def save_file_results(session, params, file_results):
         else:
             session_save_var[file_id] = [(curve_idx, analysis_result)]
 
-def process_sfc(session, params, filedict, method, progress_callback, range_callback, step_callback):
+def get_params_dict(session,filedict, params):
+    dict_temp = {}
+    file_ids = filedict.keys()
+
+    for file_id in file_ids:
+        file = filedict[file_id]
+
+        params['def_sens'] = (
+        file.filemetadata['defl_sens_nmbyV'] 
+        if session.global_involts is None
+        else session.global_involts)/ 1e9
+
+        params['k'] = (
+            file.filemetadata['spring_const_Nbym']
+            if session.global_k is None
+            else session.global_k)
+        dict_temp[file_id] = params.copy()
+    return dict_temp
+def process_sfc(session, params, filedict, method,progress_callback, range_callback, step_callback):
     # Get curves to process for each file to process
     file_ids = filedict.keys()
-    fdc_to_process = []
+    fdc_to_process = {}
+    # Get params for each file or the global values if set
+    params_func = get_params_dict(session,filedict, params)
     step_callback.emit('Step 1/2: Preprocessing')
     for file_id in file_ids:
         # Get fileid
@@ -98,6 +118,7 @@ def process_sfc(session, params, filedict, method, progress_callback, range_call
         clear_file_results(session, method, file_id)
         # Get current selected index
         curve_idx = session.current_curve_index
+        params = params_func[file_id]
         try:
             # Get force distance curve at index
             fdc_at_indx = file.getcurve(curve_idx)
@@ -105,7 +126,7 @@ def process_sfc(session, params, filedict, method, progress_callback, range_call
             fdc_at_indx.preprocess_force_curve(params['def_sens'], params['height_channel'])
             if session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
                 fdc_at_indx.shift_height()
-            fdc_to_process.append(fdc_at_indx)
+            fdc_to_process[file_id] = fdc_at_indx
         except Exception as error:
             logger.info(f"Failed to preprocess curve {curve_idx} in file {file.filemetadata['Entry_filename']}: {error}")
             continue
@@ -115,7 +136,7 @@ def process_sfc(session, params, filedict, method, progress_callback, range_call
     range_callback.emit(len(fdc_to_process))
     step_callback.emit('Step 2/2: Computing')
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        futures = [executor.submit(analyze_fdc, params, fdc) for fdc in fdc_to_process]
+        futures = [executor.submit(analyze_fdc, params_func[fileid], fdc_to_process[fileid]) for fileid in filedict.keys()]
         with contextlib.suppress(concurrent.futures.TimeoutError):
             for future in concurrent.futures.as_completed(futures):
                 file_results.append(future.result())
@@ -125,6 +146,9 @@ def process_sfc(session, params, filedict, method, progress_callback, range_call
     save_file_results(session, params, file_results)
 
 def process_maps(session, params, filedict, method, progress_callback, range_callback, step_callback):
+    # Get deflection sensitivity and spring constant for each file or using the global values
+    params_func = get_params_dict(session,filedict, params)
+
     # Process files and curves
     for file_id, file in filedict.items():
         logger.info(f"Processing file: {file_id}")
@@ -139,7 +163,8 @@ def process_maps(session, params, filedict, method, progress_callback, range_cal
         raw_fdc_to_process = []
         count = 0
         nb_curves = file.filemetadata['Entry_tot_nb_curve']
-        range_callback.emit(nb_curves)
+        params = params_func[file_id]
+        range_callback.emit(nb_curves)        
         step_callback.emit('Step 1/2: Preprocessing')
         with concurrent.futures.ProcessPoolExecutor() as executor:
             futures = [executor.submit(prepare_map_fdc, file, params, curveidx) for curveidx in range(nb_curves)]

@@ -33,8 +33,14 @@ class AnalysisParams(pTypes.GroupParameter):
         self.mode = mode
         self.addChildren([
             {'name': 'Height Channel', 'type': 'str', 'value': 'measuredHeight', 'readonly':True},
-            {'name': 'Spring Constant', 'type': 'float', 'value': None, 'units':'N/m'},
-            {'name': 'Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V'},
+            {'name': 'Spring Constant', 'type': 'float', 'value': None, 'units':'N/m','readonly':True},
+            {'name': 'Overwrite Spring Constant', 'type': 'bool', 'value':False},
+            {'name': 'Global Spring Constant', 'type': 'float', 'value': None, 'units':'N/m'},
+
+            {'name': 'Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V','readonly':True},
+            {'name': 'Overwrite Deflection Sensitivity', 'type': 'bool', 'value':False},
+            {'name': 'Global Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V'},
+
             {'name': 'Contact Model', 'type': 'list', 'limits': available_geometries},
             {'name': 'Tip Angle', 'type': 'float', 'value': 35, 'units':'°'},
             {'name': 'Tip Radius', 'type': 'float', 'value': 75, 'units':'nm'},
@@ -62,7 +68,16 @@ class AnalysisParams(pTypes.GroupParameter):
             self.overwrite_wc = self.param('Overwrite Working Ind.')
             self.overwrite_wc.sigValueChanged.connect(self.overwrite_wc_changed)
             self.overwrite_wc_changed
+
+        self.param('Global Spring Constant').show(False)
+        self.param('Global Deflection Sensitivity').show(False)
         
+        self.overwrite_k = self.param('Overwrite Spring Constant')
+        self.overwrite_k.sigValueChanged.connect(self.set_global_k)
+
+        self.overwrite_invols = self.param('Overwrite Deflection Sensitivity')
+        self.overwrite_invols.sigValueChanged.connect(self.set_global_invols) 
+
         self.contact_model = self.param('Contact Model')
         self.contact_model.sigValueChanged.connect(self.contact_model_changed)
 
@@ -71,6 +86,20 @@ class AnalysisParams(pTypes.GroupParameter):
 
         self.contact_model_changed()
         self.offset_type_changed()
+        self.set_global_invols()
+        self.set_global_k()
+
+
+    def set_global_invols(self):
+        if self.overwrite_invols.value():
+            self.param('Global Deflection Sensitivity').show(True)
+        else:
+            self.param('Global Deflection Sensitivity').show(False)
+    def set_global_k(self):
+        if self.overwrite_k.value():
+            self.param('Global Spring Constant').show(True)
+        else:
+            self.param('Global Spring Constant').show(False)
 
     def contact_model_changed(self):
         if self.contact_model.value() == 'paraboloid':
@@ -181,6 +210,7 @@ class TingFitParams(pTypes.GroupParameter):
             {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi']},
             {'name': 'PoC Window', 'type': 'int', 'value': 350, 'units':'nm'},
             {'name': 'Sigma', 'type': 'int', 'value': 0},
+            {'name': 'Mask for Retract force', 'type': 'float', 'value': 1},
             {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force']},
             {'name': 'Min Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Max Indentation', 'type': 'float', 'value': None, 'units':'nm'},
