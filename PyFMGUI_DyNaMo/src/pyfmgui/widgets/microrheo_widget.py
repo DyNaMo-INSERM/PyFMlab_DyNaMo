@@ -311,8 +311,14 @@ class MicrorheoWidget(QtWidgets.QWidget):
         current_file = self.current_file
         current_curve_indx = self.session.current_curve_index
         height_channel = analysis_params.child('Height Channel').value()
-        spring_k = analysis_params.child('Spring Constant').value()
-        deflection_sens = analysis_params.child('Deflection Sensitivity').value() / 1e9
+        deflection_sens = (self.current_file.filemetadata['defl_sens_nmbyV'] 
+                if self.session.global_involts is None
+                else self.session.global_involts)/ 1e9
+
+        spring_k = (self.current_file.filemetadata['spring_const_Nbym']
+            if self.session.global_k is None
+            else self.session.global_k)
+    
         method = analysis_params.child('Method').value()
         correct_tilt_flag = analysis_params.child('Correct Tilt').value()
 
@@ -542,19 +548,45 @@ class MicrorheoWidget(QtWidgets.QWidget):
         self.p7.removeItem(self.offset_roi)
         self.p7.addItem(self.offset_roi, ignoreBounds=True)
         self.offset_roi.setRegion([self.minoffset, self.maxoffset])
+        
+    def update_global_k_ols(self):
+        analysis_params = self.params.child('Analysis Params')
+
+        if analysis_params.child('Overwrite Deflection Sensitivity').value():
+            self.session.global_involts = analysis_params.child('Global Deflection Sensitivity').value()
+        else:
+            self.session.global_involts = None
+            analysis_params.child('Deflection Sensitivity').setValue(
+                self.current_file.filemetadata['defl_sens_nmbyV'])
+        if analysis_params.child('Overwrite Spring Constant').value():
+            self.session.global_k = analysis_params.child('Global Spring Constant').value()
+        else:
+            self.session.global_k = None
+            analysis_params.child('Spring Constant').setValue(
+                self.current_file.filemetadata['spring_const_Nbym'])
 
     def updateParams(self):
         # Updates params related to the current file
         analysis_params = self.params.child('Analysis Params')
-        analysis_params.child('Height Channel').setValue(self.current_file.filemetadata['height_channel_key'])
+        analysis_params.child('Height Channel').setValue(
+            self.current_file.filemetadata['height_channel_key'])
+        
         if self.session.global_k is None:
-            analysis_params.child('Spring Constant').setValue(self.current_file.filemetadata['spring_const_Nbym'])
-        else:
-            analysis_params.child('Spring Constant').setValue(self.session.global_k)
+            analysis_params.child('Spring Constant').setValue(
+                self.current_file.filemetadata['spring_const_Nbym'])
         if self.session.global_involts is None:
-            analysis_params.child('Deflection Sensitivity').setValue(self.current_file.filemetadata['defl_sens_nmbyV'])
-        else:
-            analysis_params.child('Deflection Sensitivity').setValue(self.session.global_involts)
+            analysis_params.child('Deflection Sensitivity').setValue(
+                self.current_file.filemetadata['defl_sens_nmbyV'])
+        
+        analysis_params.child(
+        'Overwrite Deflection Sensitivity').sigValueChanged.connect(self.update_global_k_ols)
+     
+        analysis_params.child(
+        'Overwrite Spring Constant').sigValueChanged.connect(self.update_global_k_ols)
+        analysis_params.child(
+        'Global Deflection Sensitivity').sigValueChanged.connect(self.update_global_k_ols)
+        analysis_params.child(
+        'Global Spring Constant').sigValueChanged.connect(self.update_global_k_ols)
 
         analysis_params.child(
             'Correct Tilt').sigValueChanged.connect(self.updatePlots)

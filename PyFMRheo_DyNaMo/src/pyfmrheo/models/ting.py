@@ -52,7 +52,11 @@ class TingModel:
         self.smooth_w = None
         # Moximum indentation time
         self.idx_tm = None
-    
+        # Stored arrays for fitting
+        self.fit_time = []
+        self.fit_force = []
+        self.fit_ind = []
+
 
     def build_params(self):
         params = Parameters()
@@ -210,8 +214,10 @@ class TingModel:
         return np.r_[FtNC, FJ+F0, FrNC]+smooth(numdiff(delta)*vdrag/numdiff(time), 21)
     
     def fit(self, time, F, delta, t0, idx_tm=None, smooth_w=None, v0t=None, v0r=None):
-        #self.fit_time = time;self.fit_force = F;self.fit_ind = delta
-        
+        #store the arrays within the model before fitting
+        self.fit_time = time
+        self.fit_force = F
+        self.fit_ind = delta
         # Define fixed params
         self.t0 = t0
         self.idx_tm = idx_tm

@@ -442,14 +442,12 @@ class HertzFitWidget(QtWidgets.QWidget):
         analysis_params = self.params.child('Analysis Params')
 
         if analysis_params.child('Overwrite Deflection Sensitivity').value():
-            print("setting global invols")
             self.session.global_involts = analysis_params.child('Global Deflection Sensitivity').value()
         else:
             self.session.global_involts = None
             analysis_params.child('Deflection Sensitivity').setValue(
                 self.current_file.filemetadata['defl_sens_nmbyV'])
         if analysis_params.child('Overwrite Spring Constant').value():
-            print("setting global Spring Constant")
             self.session.global_k = analysis_params.child('Global Spring Constant').value()
         else:
             self.session.global_k = None

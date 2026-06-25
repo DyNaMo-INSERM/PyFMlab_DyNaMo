@@ -70,6 +70,17 @@ def doTingFit(fdc, param_dict):
             ext_indentation, ext_force, ret_indentation, ret_force,
             poly_order=param_dict['polyordr'], speed=param_dict['rampspeed']
         )
+    
+    # to mask for the half retract
+    if param_dict.get('ret_force_mask', None) is not None:
+        thresh_ret = ret_force.max() - ret_force.max() * \
+            param_dict['ret_force_mask']
+        mask_segoi = ret_force > thresh_ret
+
+        ret_indentation = ret_indentation[mask_segoi]
+        ret_force = ret_force[mask_segoi]
+        ret_time = ret_time[mask_segoi]
+
     # The used may decide to compute the velocities of 
     # approach and retract withing the model by fitting a 
     # straight line, where the slope will be the velocity.

@@ -238,11 +238,14 @@ class TingFitWidget(QtWidgets.QWidget):
 
         analysis_params = self.params.child('Analysis Params')
         ting_params = self.params.child('Ting Fit Params')
-
         height_channel = analysis_params.child('Height Channel').value()
-        deflection_sens = analysis_params.child('Deflection Sensitivity').value() / 1e9
-        spring_k = analysis_params.child('Spring Constant').value()
-        
+        deflection_sens = (self.current_file.filemetadata['defl_sens_nmbyV'] 
+                if self.session.global_involts is None
+                else self.session.global_involts)/ 1e9
+
+        spring_k = (self.current_file.filemetadata['spring_const_Nbym']
+            if self.session.global_k is None
+            else self.session.global_k)
         poc_method = ting_params.child('PoC Method').value()
         poc_win = ting_params.child('PoC Window').value() / 1e9
         poc_sigma = ting_params.child('Sigma').value()
@@ -348,15 +351,15 @@ class TingFitWidget(QtWidgets.QWidget):
         downfactor= len(time_fit) // pts_downsample
         idxDown = list(range(0, len(time_fit), downfactor))
 
-        self.p2.plot(time_fit[idxDown], force_fit[idxDown])
-
+        # self.p2.plot(time_fit[idxDown], force_fit[idxDown])
         self.update_tilt_range()
 
         if self.fit_data is not None:
+            self.p2.plot( self.fit_data.fit_time,  self.fit_data.fit_force)
             self.p2.plot(
-                time_fit[idxDown],
+                self.fit_data.fit_time,
                 self.fit_data.eval(
-                    time_fit[idxDown], force_fit[idxDown], ind_fit[idxDown], t0=t0_scaling,
+                    self.fit_data.fit_time, self.fit_data.fit_force, self.fit_data.fit_ind, t0=t0_scaling,
                     idx_tm=self.fit_data.idx_tm, smooth_w=self.fit_data.smooth_w,
                     v0t=self.fit_data.v0t, v0r=self.fit_data.v0r
                 ), pen ='g', name='Fit')
@@ -373,9 +376,9 @@ class TingFitWidget(QtWidgets.QWidget):
             self.p2legend.addItem(style, f'Ting tc: {self.ting_tc+tc_fit:.2f} s')
             self.p2legend.addItem(style, f'Ting Red. Chi: {self.ting_redchi:.3E}')
             res = self.p4.plot(
-                time_fit[idxDown],
+                self.fit_data.fit_time,
                 self.fit_data.get_residuals(
-                    time_fit[idxDown], force_fit[idxDown], ind_fit[idxDown], t0=t0_scaling,
+                    self.fit_data.fit_time,  self.fit_data.fit_force,  self.fit_data.fit_ind , t0=t0_scaling,
                     idx_tm=self.fit_data.idx_tm, smooth_w=self.fit_data.smooth_w,
                     v0t=self.fit_data.v0t, v0r=self.fit_data.v0r
                 ), pen=None, symbol='o')
@@ -424,19 +427,45 @@ class TingFitWidget(QtWidgets.QWidget):
         self.p3.addItem(self.offset_roi, ignoreBounds=True)
         self.offset_roi.setRegion([self.minoffset, self.maxoffset])
 
+    def update_global_k_ols(self):
+        analysis_params = self.params.child('Analysis Params')
+
+        if analysis_params.child('Overwrite Deflection Sensitivity').value():
+            self.session.global_involts = analysis_params.child('Global Deflection Sensitivity').value()
+        else:
+            self.session.global_involts = None
+            analysis_params.child('Deflection Sensitivity').setValue(
+                self.current_file.filemetadata['defl_sens_nmbyV'])
+        if analysis_params.child('Overwrite Spring Constant').value():
+            self.session.global_k = analysis_params.child('Global Spring Constant').value()
+        else:
+            self.session.global_k = None
+            analysis_params.child('Spring Constant').setValue(
+                self.current_file.filemetadata['spring_const_Nbym'])
+
 
     def updateParams(self):
         # Updates params related to the current file
         analysis_params = self.params.child('Analysis Params')
-        analysis_params.child('Height Channel').setValue(self.current_file.filemetadata['height_channel_key'])
+        analysis_params.child('Height Channel').setValue(
+            self.current_file.filemetadata['height_channel_key'])
+        
         if self.session.global_k is None:
-            analysis_params.child('Spring Constant').setValue(self.current_file.filemetadata['spring_const_Nbym'])
-        else:
-            analysis_params.child('Spring Constant').setValue(self.session.global_k)
+            analysis_params.child('Spring Constant').setValue(
+                self.current_file.filemetadata['spring_const_Nbym'])
         if self.session.global_involts is None:
-            analysis_params.child('Deflection Sensitivity').setValue(self.current_file.filemetadata['defl_sens_nmbyV'])
-        else:
-            analysis_params.child('Deflection Sensitivity').setValue(self.session.global_involts)
+            analysis_params.child('Deflection Sensitivity').setValue(
+                self.current_file.filemetadata['defl_sens_nmbyV'])
+        
+        analysis_params.child(
+        'Overwrite Deflection Sensitivity').sigValueChanged.connect(self.update_global_k_ols)
+     
+        analysis_params.child(
+        'Overwrite Spring Constant').sigValueChanged.connect(self.update_global_k_ols)
+        analysis_params.child(
+        'Global Deflection Sensitivity').sigValueChanged.connect(self.update_global_k_ols)
+        analysis_params.child(
+        'Global Spring Constant').sigValueChanged.connect(self.update_global_k_ols)
         
         analysis_params.child('Correct Tilt').sigValueChanged.connect(self.updatePlots)
         analysis_params.child('Offset Type').sigValueChanged.connect(self.updatePlots)
