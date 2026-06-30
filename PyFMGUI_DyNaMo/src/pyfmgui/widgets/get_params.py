@@ -60,7 +60,7 @@ def get_params(params, method):
         param_dict['max_force'] = hertz_params.child('Max Force').value() / 1e9 #nN
         param_dict['min_force'] = hertz_params.child('Min Force').value() / 1e9 #nN
         param_dict['fit_line'] = hertz_params.child('Fit Line to non contact').value()
-        param_dict['contact_offset'] = hertz_params.child('Contact Offset').value() / 1e6 #um
+        param_dict['contact_offset'] = hertz_params.child('Non-Contact fit range').value() / 1e6 #um
 
     # TingFit specific parameters
     elif method == "TingFit":
@@ -74,13 +74,13 @@ def get_params(params, method):
         param_dict['poc_method'] = ting_params.child('PoC Method').value()
         param_dict['poc_win'] = ting_params.child('PoC Window').value() / 1e9 #nm
         param_dict['sigma'] = ting_params.child('Sigma').value()
-        param_dict['ret_force_mask'] = ting_params.child('Mask for Retract force').value()
+        param_dict['ret_force_mask'] = ting_params.child('Retract force fit range').value()
         param_dict['max_ind'] = ting_params.child('Max Indentation').value() / 1e9 #nm
         param_dict['min_ind'] = ting_params.child('Min Indentation').value() / 1e9 #nm
         param_dict['max_force'] = ting_params.child('Max Force').value() / 1e9 #nN
         param_dict['min_force'] = ting_params.child('Min Force').value() / 1e9 #nN
-        param_dict['fit_range_type'] = ting_params.child('Fit Range Type').value()
-        param_dict['vdragcorr'] = ting_params.child('Correct Viscous Drag').value()
+        param_dict['fit_range_type'] = ting_params.child('Hertz Fit Range Type').value()
+        param_dict['vdragcorr'] = ting_params.child('Subtract Vdrag Offset').value()
         param_dict['polyordr'] = ting_params.child('Poly. Order').value()
         param_dict['rampspeed'] = ting_params.child('Ramp Speed').value() / 1e6 #um/s
         param_dict['compute_v_flag'] = ting_params.child('Estimate V0t & V0r').value()
@@ -96,7 +96,7 @@ def get_params(params, method):
         param_dict['vdrag'] = ting_params.child('Viscous Drag').value() / 1e3 #N/m·s
         param_dict['model_type'] = ting_params.child('Model Type').value()
         param_dict['smoothing_win'] = ting_params.child('Smoothing Window').value()
-        param_dict['contact_offset'] = ting_params.child('Contact Offset').value() / 1e6 #um
+        param_dict['contact_offset'] = ting_params.child('Non-Contact fit range').value() / 1e6 #um
         param_dict['slope'] = ting_params.child('Init Slope').value()
         param_dict['fit_line'] = ting_params.child('Fit Line to non contact').value()
         param_dict['pts_downsample'] = ting_params.child('Downsample Pts.').value()

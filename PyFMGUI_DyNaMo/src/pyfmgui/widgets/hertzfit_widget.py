@@ -255,7 +255,7 @@ class HertzFitWidget(QtWidgets.QWidget):
         poc_method = hertz_params.child('PoC Method').value()
         poc_win = hertz_params.child('PoC Window').value() / 1e9
         poc_sigma = hertz_params.child('Sigma').value()
-        contact_offset = hertz_params.child('Contact Offset').value() / 1e6
+        contact_offset = hertz_params.child('Non-Contact fit range').value() / 1e6
 
         force_curve = self.current_file.getcurve(current_curve_indx)
         force_curve.preprocess_force_curve(deflection_sens, height_channel)

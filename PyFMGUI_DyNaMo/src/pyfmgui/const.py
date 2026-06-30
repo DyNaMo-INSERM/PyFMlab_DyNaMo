@@ -36,7 +36,6 @@ class AnalysisParams(pTypes.GroupParameter):
             {'name': 'Spring Constant', 'type': 'float', 'value': None, 'units':'N/m','readonly':True},
             {'name': 'Overwrite Spring Constant', 'type': 'bool', 'value':False},
             {'name': 'Global Spring Constant', 'type': 'float', 'value': None, 'units':'N/m'},
-
             {'name': 'Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V','readonly':True},
             {'name': 'Overwrite Deflection Sensitivity', 'type': 'bool', 'value':False},
             {'name': 'Global Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V'},
@@ -153,9 +152,8 @@ class HertzFitParams(pTypes.GroupParameter):
             {'name': 'Init f0', 'type': 'float', 'value': 0, 'units':'nN'},
             {'name': 'Fit Line to non contact', 'type': 'bool', 'value':False},
             {'name': 'Init Slope', 'type': 'float', 'value': 0},
-            {'name': 'Contact Offset', 'type': 'float', 'value': 1, 'units':'um'},
+            {'name': 'Non-Contact fit range', 'type': 'float', 'value': 1, 'units':'um'},
         ])
-
         self.poc_mode = self.param('PoC Method')
         self.poc_mode.sigValueChanged.connect(self.poc_mode_changed)
 
@@ -207,18 +205,25 @@ class TingFitParams(pTypes.GroupParameter):
         pTypes.GroupParameter.__init__(self, **opts)
         self.addChildren([
             {'name': 'Poisson Ratio', 'type': 'float', 'value': 0.5},
+            
             {'name': 'PoC Method', 'type': 'list', 'limits':['RoV', 'regulaFalsi']},
             {'name': 'PoC Window', 'type': 'int', 'value': 350, 'units':'nm'},
             {'name': 'Sigma', 'type': 'int', 'value': 0},
-            {'name': 'Mask for Retract force', 'type': 'float', 'value': 1},
-            {'name': 'Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force']},
+            
+            {'name': 'Non-Contact fit range', 'type': 'float', 'value': 1, 'units':'um'},
+            {'name': 'Retract force fit range', 'type': 'float', 'value': 1},
+
+            {'name': 'Hertz Fit Range Type', 'type': 'list', 'limits': ['full', 'indentation', 'force']},
             {'name': 'Min Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Max Indentation', 'type': 'float', 'value': None, 'units':'nm'},
             {'name': 'Min Force', 'type': 'float', 'value': None, 'units':'nN'},
             {'name': 'Max Force', 'type': 'float', 'value': None, 'units':'nN'},
-            {'name': 'Correct Viscous Drag', 'type': 'bool', 'value':False},
+            
+            {'name': 'Subtract Vdrag Offset', 'type': 'bool', 'value':False},
+            {'name': 'Viscous Drag', 'type': 'float', 'value': 0, 'units':'pN/nm·s'},
             {'name': 'Poly. Order', 'type': 'int', 'value':2},
             {'name': 'Ramp Speed', 'type': 'float', 'value':0, 'units': 'um/s'},
+            
             {'name': 'Model Type', 'type': 'list', 'limits': ['analytical', 'numerical']},
             {'name': 'Estimate V0t & V0r', 'type': 'bool', 'value': False},
             {'name': 't0', 'type': 'int', 'value': 1, 'units':'s'},
@@ -230,17 +235,15 @@ class TingFitParams(pTypes.GroupParameter):
             {'name': 'Init E0', 'type': 'int', 'value': 1000, 'units':'Pa'},
             {'name': 'Init tc', 'type': 'float', 'value': 0, 'units':'s'},
             {'name': 'Init f0', 'type': 'float', 'value': 0, 'units':'nN'},
-            {'name': 'Viscous Drag', 'type': 'float', 'value': 0, 'units':'pN/nm·s'},
             {'name': 'Auto Init  Fluid. Exp.', 'type': 'bool', 'value':True},
             {'name': 'Init Fluid. Exp.', 'type': 'float', 'value': 0.20},
-            {'name': 'Contact Offset', 'type': 'float', 'value': 1, 'units':'um'},
             {'name': 'Smoothing Window', 'type': 'int', 'value': 5, 'units':'points'}
         ])
 
         self.poc_mode = self.param('PoC Method')
         self.poc_mode.sigValueChanged.connect(self.poc_mode_changed)
 
-        self.range_mode = self.param('Fit Range Type')
+        self.range_mode = self.param('Hertz Fit Range Type')
         self.range_mode.sigValueChanged.connect(self.range_mode_changed)
 
         self.fit_line = self.param('Fit Line to non contact')
@@ -249,7 +252,7 @@ class TingFitParams(pTypes.GroupParameter):
         self.model_type = self.param('Model Type')
         self.model_type.sigValueChanged.connect(self.model_type_changed)
 
-        self.vdrag_corr = self.param('Correct Viscous Drag')
+        self.vdrag_corr = self.param('Subtract Vdrag Offset')
         self.vdrag_corr.sigValueChanged.connect(self.vdrag_changed)
 
         self.poc_mode_changed()
@@ -302,10 +305,12 @@ class TingFitParams(pTypes.GroupParameter):
         if self.vdrag_corr.value():
             self.param('Poly. Order').show(True)
             self.param('Ramp Speed').show(True)
+            self.param('Viscous Drag').show(False)
+
         else:
             self.param('Poly. Order').show(False)
             self.param('Ramp Speed').show(False)
-
+            self.param('Viscous Drag').show(True)
 
 class CantileverParams(pTypes.GroupParameter):
     def __init__(self, **opts):
@@ -351,8 +356,13 @@ plot_params = {'name': 'Display Options', 'type': 'group', 'children': [
 
 rheo_params = {'name': 'Analysis Params', 'type': 'group', 'children': [
         {'name': 'Height Channel', 'type': 'str', 'value': 'measuredHeight', 'readonly':True},
-        {'name': 'Spring Constant', 'type': 'float', 'value': None, 'units':'N/m'},
-        {'name': 'Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V'},
+        {'name': 'Spring Constant', 'type': 'float', 'value': None, 'units':'N/m','readonly':True},
+        {'name': 'Overwrite Spring Constant', 'type': 'bool', 'value':False},
+        {'name': 'Global Spring Constant', 'type': 'float', 'value': None, 'units':'N/m'},
+        {'name': 'Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V','readonly':True},
+        {'name': 'Overwrite Deflection Sensitivity', 'type': 'bool', 'value':False},
+        {'name': 'Global Deflection Sensitivity', 'type': 'float', 'value': None, 'units':'nm/V'},
+
         {'name': 'Max Frequency', 'type': 'int', 'value': None, 'units':'Hz'}
     ]}
 

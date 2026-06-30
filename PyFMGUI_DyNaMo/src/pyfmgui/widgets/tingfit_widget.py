@@ -249,10 +249,10 @@ class TingFitWidget(QtWidgets.QWidget):
         poc_method = ting_params.child('PoC Method').value()
         poc_win = ting_params.child('PoC Window').value() / 1e9
         poc_sigma = ting_params.child('Sigma').value()
-        vdragcorr = ting_params.child('Correct Viscous Drag').value()
+        vdragcorr = ting_params.child('Subtract Vdrag Offset').value()
         polyordr = ting_params.child('Poly. Order').value()
         rampspeed = ting_params.child('Ramp Speed').value() / 1e6
-        contact_offset = ting_params.child('Contact Offset').value() / 1e6
+        contact_offset = ting_params.child('Non-Contact fit range').value() / 1e6
         t0_scaling = ting_params.child('t0').value()
         pts_downsample = ting_params.child('Downsample Pts.').value()
         correct_tilt_flag = analysis_params.child('Correct Tilt').value()
