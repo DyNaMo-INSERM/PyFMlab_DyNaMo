@@ -101,10 +101,11 @@ def unpack_microrheo_result(row_dict, microrheo_result):
     return row_dict
 
 def get_file_results(result_type, file_metadata_and_results):
-    file_id, filemetadata, file_result = file_metadata_and_results
+    file_id, filemetadata,global_vals, file_result = file_metadata_and_results
     file_path = filemetadata['file_path']
     k = filemetadata['spring_const_Nbym']
     defl_sens = filemetadata['defl_sens_nmbyV']
+    global_k,global_involts = global_vals
     num_x_px,num_y_px = 0,0
     scan_x_size,scan_y_size=0,0
     if bool(filemetadata['force_volume']):
@@ -132,6 +133,7 @@ def get_file_results(result_type, file_metadata_and_results):
         row_dict = {
             'file_path': file_path, 'file_id': file_id, 
             'curve_idx': curve_indx ,'kcanti': k, 'defl_sens': defl_sens,
+            'global_kcanti': global_k, 'global_defl_sens': global_involts,
             'scan_size_x_y_m': scan_size_m,'map_size_x_y_pixels': map_size,
         }
         try:
@@ -186,12 +188,13 @@ def prepare_export_results(session, progress_callback, range_callback, step_call
         'vdrag_results': None,
         'microrheo_results': None
     }
+    global_vals = [session.global_k, session.global_involts]
     # Loop through the results stored in the 
     # session and check if they are empty.
     for result_type, result in results.items():
         if result != {}:
             # Get files in session
-            files_metadata_and_results = [(file_id, session.loaded_files[file_id].filemetadata, file_result) for (file_id, file_result) in result.items()]
+            files_metadata_and_results = [(file_id, session.loaded_files[file_id].filemetadata,global_vals, file_result) for (file_id, file_result) in result.items()]
             # Start multiprocessing
             count = 0
             range_callback.emit(len(files_metadata_and_results))
