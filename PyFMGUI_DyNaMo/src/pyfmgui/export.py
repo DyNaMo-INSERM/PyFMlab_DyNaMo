@@ -90,9 +90,10 @@ def unpack_vdrag_result(row_dict, vdrag_result):
     return row_dict
 
 def unpack_microrheo_result(row_dict, microrheo_result):
-    row_dict['frequency'] = microrheo_result[0]
-    row_dict['G_storage'] = microrheo_result[1]
-    row_dict['G_loss'] = microrheo_result[2]
+    row_dict = unpack_hertz_result(row_dict, microrheo_result[0])
+    row_dict['frequency'] = microrheo_result[1]
+    row_dict['G_storage'] = microrheo_result[2]
+    row_dict['G_loss'] = microrheo_result[3]
     row_dict['losstan'] = np.array(row_dict['G_storage']) / np.array(row_dict['G_loss'])
     row_dict['fi_degrees'] = microrheo_result[-4]
     row_dict['amp_quotient'] = microrheo_result[-3]

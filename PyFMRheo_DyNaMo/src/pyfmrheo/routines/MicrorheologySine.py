@@ -147,4 +147,4 @@ def doMicrorheologySine(fdc, param_dict):
     defl_sinfit_results = [x[4] for x in results]
     fi_results = [x[5] for x in results]
     amp_quotient_results = [x[6] for x in results]
-    return (frequencies_results, G_storage_results, G_loss_results, ind_sinfit_results, defl_sinfit_results, fi_results, amp_quotient_results, bcoef, wc)
+    return (hertz_result,frequencies_results, G_storage_results, G_loss_results, ind_sinfit_results, defl_sinfit_results, fi_results, amp_quotient_results, bcoef, wc)

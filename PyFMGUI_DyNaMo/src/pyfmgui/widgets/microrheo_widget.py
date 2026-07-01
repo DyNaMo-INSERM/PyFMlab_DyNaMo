@@ -305,6 +305,10 @@ class MicrorheoWidget(QtWidgets.QWidget):
         self.Loss_tan = None
         self.ind_results = None
         self.defl_results = None
+        self.hertz_result = None
+        self.hertz_d0 = 0
+        self.hertz_E = None
+        self.wc = None
 
         analysis_params = self.params.child('Analysis Params')
         current_file_id = self.current_file.filemetadata['Entry_filename']
@@ -346,13 +350,17 @@ class MicrorheoWidget(QtWidgets.QWidget):
                         continue
                     if curve_indx == self.session.current_curve_index:
                         # print(curve_microrheo_result)
-                        self.freqs = curve_microrheo_result[0]
-                        self.G_storage = np.array(curve_microrheo_result[1])
-                        self.G_loss = np.array(curve_microrheo_result[2])
+                        self.hertz_result = curve_microrheo_result[0]
+                        self.hertz_d0 = self.hertz_result.delta0
+                        self.hertz_E =self.hertz_result.E0
+                        self.freqs = curve_microrheo_result[1]
+                        self.G_storage = np.array(curve_microrheo_result[2])
+                        self.G_loss = np.array(curve_microrheo_result[3])
                         self.Loss_tan = self.G_loss / self.G_storage
+                        self.wc = curve_microrheo_result[-1]
                         if method == 'Sine Fit':
-                            self.ind_results = curve_microrheo_result[3]
-                            self.defl_results = curve_microrheo_result[4]
+                            self.ind_results = curve_microrheo_result[4]
+                            self.defl_results = curve_microrheo_result[5]
                 except Exception:
                     continue
         #approach data
@@ -383,14 +391,30 @@ class MicrorheoWidget(QtWidgets.QWidget):
             poc = [0, 0]
         
         force_curve.get_force_vs_indentation(poc, spring_k)
-        indapp = self.seg_data.indentation
+        indapp = self.seg_data.indentation 
         forceapp = self.seg_data.force
-        #NOTE: maxind Doesn't account for d0 from HertzFit but which is accounted in the export (w_ind) and in the G* calculation.
-        maxind = indapp.max()*1e9
-        analysis_params.child('Computed Working Ind.').setValue(maxind)
-        self.p8.plot(indapp, forceapp)
+
+        if self.wc is None:
+            self.wc = indapp.max()
+
+        self.wc *= 1e9
+        analysis_params.child('Computed Working Ind.').setValue(self.wc)
+        self.p8.plot(indapp - self.hertz_d0 , forceapp)
         vertical_line = pg.InfiniteLine(pos=0, angle=90, pen='y', movable=False, label='Init d0', labelOpts={'color':'y', 'position':0.5})
         self.p8.addItem(vertical_line, ignoreBounds=True)
+        style = pg.PlotDataItem(pen=None)
+
+        if self.hertz_result is not None:
+            x = indapp
+            y = self.hertz_result.eval(x)
+            self.p8.plot(x - self.hertz_d0, y, pen='g', name='Fit')
+            self.p8legend.addItem(style, f'Hertz E: {self.hertz_E:.2f} Pa')
+
+        if analysis_params.child('Overwrite Working Ind.').value():
+            set_ind = analysis_params.child('Set Working Ind.').value()
+            self.p8legend.addItem(style, f'Set Working Ind.: {self.wc:.2f} nm')
+        else:
+            self.p8legend.addItem(style, f'Computed Working Ind.: {self.wc:.2f} nm')
 
         t0 = 0
         t0_2 = 0
@@ -503,14 +527,6 @@ class MicrorheoWidget(QtWidgets.QWidget):
         self.p8.setLabel('bottom', 'Indentation', 'm')
         self.p8.setTitle("Approach Force-Indentation")
         self.p8.addLegend()
-
-        style = pg.PlotDataItem(pen=None)
-
-        if analysis_params.child('Overwrite Working Ind.').value():
-            set_ind = analysis_params.child('Set Working Ind.').value()
-            self.p8legend.addItem(style, f'Set Working Ind.: {set_ind:.2f} nm')
-        else:
-            self.p8legend.addItem(style, f'Computed Working Ind.: {maxind:.2f} nm')
 
         self.l.addItem(self.p7)
         self.l.addItem(self.p8)
