@@ -94,7 +94,7 @@ def unpack_microrheo_result(row_dict, microrheo_result):
     row_dict['frequency'] = microrheo_result[1]
     row_dict['G_storage'] = microrheo_result[2]
     row_dict['G_loss'] = microrheo_result[3]
-    row_dict['losstan'] = np.array(row_dict['G_storage']) / np.array(row_dict['G_loss'])
+    row_dict['losstan'] =  np.array(row_dict['G_loss'])/np.array(row_dict['G_storage'])
     row_dict['fi_degrees'] = microrheo_result[-4]
     row_dict['amp_quotient'] = microrheo_result[-3]
     row_dict['B(0)'] = microrheo_result[-2]
