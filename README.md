@@ -72,7 +72,7 @@ pyinstaller --onefile --name "name_your_executable" --windowed ./PyFMLAB/PyFMGUI
 - Improve error handling and logging
 
 ## Acknowledgements
-This project has received funding by the H2020 European Union’s Horizon 2020 research and innovation program under the Marie Sklodowska-Curie (grant agreement No 812772) and from the European Research Council (ERC, grant agreement No 772257).
+This project has received funding by the H2020 European Union’s Horizon 2020 research and innovation program under the Marie Sklodowska-Curie (grant agreement No 812772) and from the European Research Council (ERC, grant agreement Nos 772257 and 101189381).
 
 
 ## Citation
