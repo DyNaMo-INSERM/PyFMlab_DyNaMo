@@ -287,12 +287,11 @@ def tiff_results(df_fileid, dirname, file_prefix, result_type):
         return
 
     for res in results_id:
-        for i in range(N_curve):
-            temp_cid = map_corrd_lin[i]
-            df_found = df_fileid[df_fileid['curve_idx'].isin([temp_cid])]
-            if len(df_found) == 1:
-                Param1_lin[i] = df_found[res].iloc[0]
-
+        
+        lookup = df_fileid.set_index('curve_idx')[res].to_dict()
+        for i, temp_cid in enumerate(map_corrd_lin):
+            if temp_cid in lookup:
+                Param1_lin[i] = lookup[temp_cid]
         # Reshape and flip maps
         Map_2d_1 = np.reshape(Param1_lin, (nx, ny))
         Map_2d_1 = np.flipud(Map_2d_1)
