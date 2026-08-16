@@ -68,8 +68,6 @@ class ForceCurve:
                 Returns: None
         """
         for _, segment in self.get_segments():
-            # plt.plot(segment.segment_formated_data['time'],
-            #          segment.segment_formated_data['vDeflection'])
             segment.preprocess_segment(deflection_sens, height_channel_key, y0)
 
     def shift_height(self):

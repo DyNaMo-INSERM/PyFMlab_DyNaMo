@@ -32,16 +32,19 @@ def loadJPKimg_h5(filemetadata):
 
     if file_type in 'JPK MultiScan Force Spectroscopy':
 
-        data['coordinate'] = np.arange(0,filemetadata["Entry_tot_nb_curve"]).reshape((filemetadata["num_y_pixels"],filemetadata["num_x_pixels"]))
-        #TODO needs to updated, to the pizeo image
-        data['CombinedHeightMeasured'] = np.arange(0,filemetadata["Entry_tot_nb_curve"]).reshape((filemetadata["num_y_pixels"],filemetadata["num_x_pixels"]))
-    
+        data['coordinate'] = np.arange(0, filemetadata["Entry_tot_nb_curve"]).reshape(
+            (filemetadata["num_y_pixels"], filemetadata["num_x_pixels"]))
+        # TODO needs to updated, to the pizeo image
+        data['CombinedHeightMeasured'] = np.arange(0, filemetadata["Entry_tot_nb_curve"]).reshape(
+            (filemetadata["num_y_pixels"], filemetadata["num_x_pixels"]))
+
     elif file_type == 'JPK MultiScan Force Map Spectroscopy':
         with h5py.File(file, "r") as h5file:
             top_attrs = h5file[top_group].attrs
 
             for name, path in image_paths.items():
-                # print(name)
+                if path not in h5file:
+                    continue
                 image_arr = h5file[path][:]
 
                 image_2D = image_arr.reshape(
@@ -127,15 +130,15 @@ def computeJPKPiezoImg_h5(UFF, pizeo_channel='MeasuredHeight'):
                 (UFF.filemetadata["num_y_pixels"], UFF.filemetadata["num_x_pixels"]))
 
     elif file_type == 'JPK MultiScan Force Spectroscopy':
-        #print("what hell is the channel name here ", file_type)
-        #piezoimg = tempiezoimg - np.nanmin(tempiezoimg)
+        # print("what hell is the channel name here ", file_type)
+        # piezoimg = tempiezoimg - np.nanmin(tempiezoimg)
         piezoimg = np.zeros(UFF.filemetadata["Entry_tot_nb_curve"])
         for i in range(UFF.filemetadata["Entry_tot_nb_curve"]):
             FC = UFF.getcurve(i)
             piezoimg[i] = FC.z_at_setpoint
         # Reshape piezo image
         piezoimg = piezoimg.reshape(
-            (UFF.filemetadata["num_y_pixels"],UFF.filemetadata["num_x_pixels"]))
+            (UFF.filemetadata["num_y_pixels"], UFF.filemetadata["num_x_pixels"]))
         UFF.imagedata[pizeo_channel] = piezoimg
 
     return piezoimg

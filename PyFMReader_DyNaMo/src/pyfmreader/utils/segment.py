@@ -90,6 +90,7 @@ class Segment:
         deflection_v = self.segment_formated_data["vDeflection"]
         if self.segment_metadata is not None and\
             self.segment_metadata["baseline_measured"]:
+            #print('subtracting baseline from vDeflection',self.segment_metadata["baseline"])
             deflection_v = deflection_v - self.segment_metadata["baseline"]
         elif y0 is not None:
             deflection_v = deflection_v - y0

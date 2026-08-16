@@ -70,6 +70,8 @@ def loadJPKh5curve(file_metadata, curve_index):
         seg_group = segments_h5[seg_id]
 
         seg_type = segment_meta[seg_id]['name']
+        if 'modulation' in seg_type:
+            seg_type = 'Modulation'
         segment_duration = read_from_metadata(
             seg_group, "duration")[curve_index]
         segment_num_points = read_from_metadata(
@@ -151,15 +153,14 @@ def loadJPKh5curve(file_metadata, curve_index):
         segment.nb_point = segment_num_points
         segment.nb_col = len(segment_formated_data.keys())
         segment.force_setpoint = file_metadata["force_setpoint"]
-
         segment.velocity = float(
             segment_meta[seg_id]["environment.feedback-mode.approach-feedback-settings.velocity"])
         segment.sampling_rate = segment.nb_point / \
             segment.segment_metadata["duration"]
         # TODO move this to parse
-        segment_meta[seg_id]["ramp_size"] = float(segment_meta[seg_id]['settings.segment-settings.z-end'])-float(
-            segment_meta[seg_id]['settings.segment-settings.z-start'])
-        segment.z_displacement = segment.segment_metadata["ramp_size"]
+        #segment_meta[seg_id]["ramp_size"] = float(segment_meta[seg_id]['settings.segment-settings.z-end'])-float(
+        #    segment_meta[seg_id]['settings.segment-settings.z-start'])
+        #segment.z_displacement = segment.segment_metadata["ramp_size"]
         if segment.segment_type == "Extend":
             force_curve.extend_segments.append(
                 (int(segment.segment_id), segment))
@@ -173,7 +174,7 @@ def loadJPKh5curve(file_metadata, curve_index):
         elif segment.segment_type == "Pause":
             force_curve.pause_segments.append(
                 (int(segment.segment_id), segment))
-        elif segment.segment_type == "Modulation":
+        elif segment.segment_type =='Modulation':
             force_curve.modulation_segments.append(
                 (int(segment.segment_id), segment))
     h5file.close()

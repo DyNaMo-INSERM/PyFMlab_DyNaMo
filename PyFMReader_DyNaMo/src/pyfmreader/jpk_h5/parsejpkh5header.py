@@ -202,15 +202,17 @@ def parsejpkh5_header(file_path):
         # this is for smart points
         top_group = "Measurement_000/"
         file_metadata['top_group'] = top_group
-    
+
         prefix = 'multi-scan-series.header'
         pre_header = ''
         file_metadata['force_volume'] = 1
-        #defining as a row of points to make it easier
-        file_metadata['Entry_tot_nb_curve'] = int(h5file[f"{top_group}/Position_Indices"][:].shape[0])
+        # defining as a row of points to make it easier
+        file_metadata['Entry_tot_nb_curve'] = int(
+            h5file[f"{top_group}/Position_Indices"][:].shape[0])
         file_metadata["num_x_pixels"] = file_metadata['Entry_tot_nb_curve']
         file_metadata["num_y_pixels"] = 1
-        file_metadata["point_position_values"] = h5file[f"{top_group}/Position_Values"][:]
+        point_pos = f"{top_group}/Position_Values"
+        file_metadata["point_position_values"] = h5file[point_pos][:]
     elif file_metadata['file_type'] == "JPK QNM MAP":
         # this is for QNM
         # TODO define this prefix
@@ -220,7 +222,7 @@ def parsejpkh5_header(file_path):
 
         top_group = "Measurement_000/Map/Trace/"
         file_metadata['top_group'] = top_group
-        #TODO needs to optimized and added 
+        # TODO needs to optimized and added
         file_metadata['Entry_tot_nb_curve'] = 1
 
     attrs = read_clean_attrs(h5file[top_group])
@@ -246,7 +248,7 @@ def parsejpkh5_header(file_path):
     file_metadata["scan_angle"] = float(header_properties.get(
         prefix + ".position-pattern.grid.theta", default_angle))
     if file_metadata['file_type'] != "JPK MultiScan Force Spectroscopy":
-        #since it is already assigned in the above code block.
+        # since it is already assigned in the above code block.
         file_metadata["num_x_pixels"] = int(header_properties.get(
             prefix + ".position-pattern.grid.ilength", multiplier_default))
         file_metadata["num_y_pixels"] = int(header_properties.get(
@@ -261,7 +263,7 @@ def parsejpkh5_header(file_path):
     file_metadata['scan_grid_center_y'] = round(float(header_properties.get(
         prefix + ".position-pattern.grid.ycenter", offset_default)), 10)
     file_metadata['position_pattern_type'] = header_properties.get(
-        prefix + ".position-pattern.type",'attribute')
+        prefix + ".position-pattern.type", 'attribute')
     file_metadata['scan_numbering'] = header_properties.get(
         prefix + ".position-pattern.grid.numbering", offset_default)
 
@@ -316,10 +318,8 @@ def parsejpkh5_header(file_path):
     # to store the segment properties
 
     if file_metadata['settings_type'] == "segmented-force-settings":
-        # TODO this needs testing
-        print("WARNOING NOT TESTED")
         file_metadata['segment_meta'] = get_modern_segment_infos_pyfm(
-            header_properties)
+            header_properties,h5file[top_group])
     elif file_metadata['settings_type'] == "relative-force-settings":
         file_metadata['segment_meta'] = get_legacy_segment_infos_pyfm(
             header_properties)
@@ -432,12 +432,39 @@ def parsejpkh5_header(file_path):
     return file_metadata
 
 # %% segment header
+def get_shared_segment_meta(header_properties,i_seg):
+    header_info = get_attributes_matching("shared-data.force-segment-header-info"
+                                          , header_properties)
+    
+    seg_shared_meta = properties_section(header_info, f"{i_seg}")
+
+    return seg_shared_meta
 
 
-def create_modern_seg_header(props: dict[str, str],
-                             dataset_name: str,
-                             index: int,
-                             ignore_fancy_name: bool = False):
+
+def _find_identifier_name(segment_props):
+    """Find the identifier name and fancy name for different identifier types."""
+    identifier_type = segment_props["identifier.type"]
+    if identifier_type == "standard":
+        return segment_props["identifier.name"], None
+    elif identifier_type == "default-object-name":
+        return (segment_props["identifier.name"],
+            segment_props["identifier.fancy-name"])
+    elif identifier_type == "ExtendedStandard":
+        return segment_props["identifier.base-object-name.name"], None
+
+
+def _find_data_set_for(identifier, fancy_name, idx, top):
+    candidates = [canonicalize_segment_name(identifier), f"Segment{idx}"]
+    if fancy_name is not None:
+        candidates += [fancy_name]
+    for candidate in candidates:
+        if candidate in top:
+            return candidate
+        
+def create_modern_seg_header(props: dict[str, str],dataset_name:str,
+                             index: int):
+
     identifier = properties_section(props, "identifier")
     identifier_type = identifier["type"]
     if identifier_type == "ExtendedStandard":
@@ -450,29 +477,28 @@ def create_modern_seg_header(props: dict[str, str],
         full_name = canonicalize_segment_name(identifier["name"])
     elif identifier_type == "default-object-name":
         full_name = identifier["fancy-name"]
-        if not ignore_fancy_name:
-            dataset_name = canonicalize_segment_name(full_name)
     else:
         raise Exception(f"Unknown identifier type '{identifier_type}'")
 
     style = props["style"]
-    info = {"name": dataset_name, 'style': name, 'index': index, **props}
+
+    info = {"name": full_name, 'style': style,
+            'index': index, 'dataset_name': dataset_name,**props}
 
     return info
 
 
 def get_modern_segment_infos_pyfm(
-    self, attrs: h5py.AttributeManager
+    header_properties,top_h5file
 ):
 
-    if read_bool_attr(attrs, "duplicate-segment-styles", False):
-        return self.get_duplicate_segment_infos(attrs)
+    if read_bool_attr(header_properties, "duplicate-segment-styles", False):
+        return get_duplicate_segment_infos(header_properties)
     else:
-        return self.get_unique_segment_infos(attrs)
+        return get_unique_segment_infos(header_properties,top_h5file)
 
 
-def get_unique_segment_infos(
-        self, attrs: h5py.AttributeManager):
+def get_unique_segment_infos(header_properties,top_h5file):
     """List all of the data segments for advanced spectroscopy.
 
     Here all segments are unique (at most one of Extend , Retract, Pause, etc.), and
@@ -480,16 +506,22 @@ def get_unique_segment_infos(
 
     """
     header_info = get_attributes_matching(
-        "multi-scan-series.header.force-settings", attrs
+        "multi-scan-series.header.force-settings", header_properties
     )
 
-    segment_count: int = header_info["segments.size"]
+    segment_count = int(header_info["segments.size"])
     segment_infos = {}
     for i in range(segment_count):
-        info = properties_section(header_info, f"segment.{i}")
+        shared_seg_meta = get_shared_segment_meta(header_properties,i) 
 
-        name = re.sub(r"-spm$", "", info["identifier.name"]).capitalize()
-        segment_infos[i] = create_modern_seg_header(info, name, i)
+        info = properties_section(header_info, f"segment.{i}")
+        identifier_name, fancy_name = _find_identifier_name(info)
+        dataset_name = _find_data_set_for(
+            identifier_name, fancy_name, i, top_h5file)
+        seg_header = create_modern_seg_header(info,dataset_name, i)
+
+        segment_infos[i] = {**seg_header,**shared_seg_meta}
+        
     return segment_infos
 
 
@@ -525,7 +557,7 @@ def get_legacy_segment_infos_pyfm(header_properties):
     segment_count: int = header_info["count"]
     segment_infos = {}
     for i in range(segment_count):
-        info = properties_section(header_info, f"{i}")
+        info = get_shared_segment_meta(header_properties,i) 
         name = re.sub(r"-spm$", "", info["name.name"]).capitalize()
         style = info["settings.style"]
         info = {"name": name, "style": style, **info}
