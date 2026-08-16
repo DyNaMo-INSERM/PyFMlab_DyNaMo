@@ -313,7 +313,7 @@ class MicrorheoWidget(QtWidgets.QWidget):
         analysis_params = self.params.child('Analysis Params')
         current_file_id = self.current_file.filemetadata['Entry_filename']
         current_file = self.current_file
-        current_curve_indx = self.session.current_curve_index
+        current_curve_indx = int(self.session.current_curve_index)
         height_channel = analysis_params.child('Height Channel').value()
         deflection_sens = (self.current_file.filemetadata['defl_sens_nmbyV'] 
                 if self.session.global_involts is None
@@ -400,8 +400,9 @@ class MicrorheoWidget(QtWidgets.QWidget):
         self.wc *= 1e9
         analysis_params.child('Computed Working Ind.').setValue(self.wc)
         self.p8.plot(indapp - self.hertz_d0 , forceapp)
-        vertical_line = pg.InfiniteLine(pos=0, angle=90, pen='y', movable=False, label='Init d0', labelOpts={'color':'y', 'position':0.5})
-        self.p8.addItem(vertical_line, ignoreBounds=True)
+        init_d0 = pg.InfiniteLine(pos=self.hertz_d0, angle=90, pen='y', movable=False, label='Init d0', labelOpts={'color':'y', 'position':0.5})
+
+        self.p8.addItem(init_d0, ignoreBounds=True)
         style = pg.PlotDataItem(pen=None)
 
         if self.hertz_result is not None:
