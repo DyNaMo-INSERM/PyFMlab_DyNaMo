@@ -33,5 +33,4 @@ def loadNANOSCimg(header):
                 temppiezoimg[i, j] = data[0] * mult
                 if skip!=0:
                     afmfile.seek(skip, 1)
-
         return temppiezoimg - temppiezoimg.min()

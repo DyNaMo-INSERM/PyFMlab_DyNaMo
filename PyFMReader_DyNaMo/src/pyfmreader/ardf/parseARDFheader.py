@@ -15,14 +15,16 @@ def parseARDFheader(filepath):
             Returns:
                     header (dict): Dictionary containing the ARDF file metadata.
     """
-    header = {}
-    
+    header = {}    
     header["file_path"] = filepath
     header["Entry_filename"] = os.path.basename(filepath)
     header["file_size_bytes"] = os.path.getsize(filepath)
     header["file_type"] = filepath.split(os.extsep)[-1]
     header['UFF_code'] = UFF_code
     header['Entry_UFF_version'] = UFF_version
+    #needs to parsed
+    header['z_closed_loop'] = None
+
 
     file_struct = read_ardf_metadata(filepath)
 

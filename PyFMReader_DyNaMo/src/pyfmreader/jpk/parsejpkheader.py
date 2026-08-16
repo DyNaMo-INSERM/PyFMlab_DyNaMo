@@ -68,7 +68,15 @@ def parseJPKheader(filepath, header_properties, shared_data_properties, filesuff
     #the scan size is now stored in meters 
     file_metadata["scan_size_x"] = round(float(header_properties.get(prefix + ".position-pattern.grid.ulength", offset_default)),10) 
     file_metadata["scan_size_y"] = round(float(header_properties.get(prefix + ".position-pattern.grid.vlength", offset_default)),10) 
+    #scan direction of the scan, back-and-forth => snake & left-to-right => frog like 
+    scanning_type = header_properties.get(prefix + ".position-pattern.numbering") # from NW5 onwards
+    if scanning_type is None:
+        back_and_forth = header_properties.get(prefix + ".position-pattern.back-and-forth")  # for NW4 
+        scanning_type = 'back-and-forth' if bool(back_and_forth) else 'left-to-right'
+
+    file_metadata["scanning_type"] = scanning_type
     
+
     file_metadata["z_closed_loop"] = header_properties.get(prefix + ".settings.force-settings.closed-loop", boolean_default)
     if file_metadata["z_closed_loop"] == "true": file_metadata["Recording_Z_close_loop_on"] = "On"
     elif file_metadata["z_closed_loop"] == "false": file_metadata["Recording_Z_close_loop_on"] = "Off"

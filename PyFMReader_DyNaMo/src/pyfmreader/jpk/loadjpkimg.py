@@ -112,6 +112,17 @@ def loadJPKimg(UFF):
                 if isinstance(mult, float) and isinstance(offset, float):
                     image = page.asarray()
                     data[channel_name] = image.astype(np.int64) * mult + offset
+    scanning_direction = UFF.filemetadata['scanning_type']
+    curve_coords = np.arange(UFF.filemetadata["num_y_pixels"]* UFF.filemetadata["num_x_pixels"]).reshape((UFF.filemetadata["num_y_pixels"],  UFF.filemetadata["num_x_pixels"]))
+    if scanning_direction =='back-and-forth':
+        # Flip odd rows to follow raster scan direction properly.
+        #   0  1  2       0  1  2
+        #   3  4  5  -->  5  4  3
+        #   6  7  8       6  7  8 
+        curve_coords = np.asarray([row[::(-1)**i] for i, row in enumerate(curve_coords)])
+
+    data['coordinate']= curve_coords
+
     return data
 
 def computeJPKPiezoImg(UFF):
@@ -138,7 +149,9 @@ def computeJPKPiezoImg(UFF):
         piezoimg = tempiezoimg - np.min(tempiezoimg)
         # Reshape piezo image
         piezoimg = piezoimg.reshape((UFF.filemetadata["num_y_pixels"], UFF.filemetadata["num_x_pixels"]))
-        if file_type == "jpk-force-map":
+        scanning_direction = UFF.filemetadata['scanning_type']
+
+        if scanning_direction =='back-and-forth':
             # Flip odd rows to follow raster scan direction properly.
             #   0  1  2       0  1  2
             #   3  4  5  -->  5  4  3
@@ -153,7 +166,5 @@ def computeJPKPiezoImg(UFF):
 
 if __name__ == '__main__':
     from pyfmreader import loadfile
-    # JPK_FORCEMAP_PATH = '/Users/javierlopez/Documents/pyafmreader/tests/testfiles/map-data-2021.11.05-17.37.44.432.jpk-force-map'
     JPK_FORCEMAP_PATH = '/Users/javierlopez/Documents/pyafmreader/tests/testfiles/qi-data-2022.04.01-16.51.44.168.jpk-qi-data'
     UFF = loadfile(JPK_FORCEMAP_PATH)
-    # print(UFF.imagedata)
