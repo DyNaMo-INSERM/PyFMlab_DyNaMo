@@ -25,6 +25,15 @@ SADER_API_url = 'https://sadermethod.org/api/1.1/api.php'
 # MULTIPROCESSING params ##########################################
 timeout_time = 20 # s
 
+# Height channels keys for different file types
+
+_HEIGHT_KEY_MAP = {
+    jpk_file_extensions: ('Height(measured)', 'Height(measured) (μm)',
+                               'Height',            'Height (μm)'),
+    jpk_h5_file:         ('CombinedHeightMeasured', 'CombinedHeightMeasured (measured) (μm)',
+                               'Height',                'Height (μm)'),
+}
+
 # Default parameters ##############################################
 
 class AnalysisParams(pTypes.GroupParameter):

@@ -19,9 +19,7 @@ import h5py
 import matplotlib.pyplot as plt
 
 
-def read_from_metadata(
-    segment: h5py.Group, ds_name: str
-):
+def read_from_metadata(segment: h5py.Group, ds_name: str):
     dataset = segment["meta-data"][ds_name]
     return np.asarray(dataset).flatten()
 
@@ -37,8 +35,6 @@ def loadJPKh5curve(file_metadata, curve_index):
             Returns:
                     force_curve (utils.forcecurve.ForceCurve): ForceCurve object containing the loaded data.
     """
-    # curve_properties = file_metadata['curve_properties']
-
     file_id = file_metadata['Entry_filename']
     file_path = file_metadata['file_path']
     top_group = file_metadata['top_group']
@@ -135,9 +131,6 @@ def loadJPKh5curve(file_metadata, curve_index):
 
         else:
             print("[!] No valid vDeflection channel found!")
-
-        # TODO mutiple segments of the same type
-        # TODO pause and modulation
 
         segment = Segment(file_id, seg_id, seg_type)
         segment.segment_formated_data = segment_formated_data

@@ -137,6 +137,22 @@ class HertzFitWidget(QtWidgets.QWidget):
         self.updatePlots()
         logger.info('ElasticityFit completed!')
 
+    def _get_height_image(self):
+
+        file_type = self.session.current_file.filemetadata['file_type']
+        imagedata = self.session.current_file.imagedata
+
+        for file_types, (primary_key, primary_title, fallback_key, fallback_title) in cts._HEIGHT_KEY_MAP.items():
+            if file_type in file_types:
+                img = imagedata.get(primary_key)
+                title = primary_title
+                if img is None:
+                    img = imagedata.get(fallback_key)
+                    title = fallback_title
+                return img, title
+
+        return self.session.current_file.piezoimg, 'Pizeo Image (μm)'
+    
     def update(self):
         self.current_file = self.session.current_file
         self.updateParams()
@@ -145,44 +161,22 @@ class HertzFitWidget(QtWidgets.QWidget):
             self.l2.addItem(self.plotItem)
             self.plotItem.addItem(self.ROI)
             self.plotItem.scene().sigMouseClicked.connect(self.mouseMoved)
-            # create transform to center the corner element on the origin, for any assigned image:
-            if self.session.current_file.filemetadata['file_type'] in cts.jpk_file_extensions:
-                img = self.session.current_file.imagedata.get(
-                    'Height(measured)', None)
-                if img is None:
-                    img = self.session.current_file.imagedata.get(
-                        'Height', None)
-                img = np.rot90(np.fliplr(img))
-                shape = img.shape
-                rows, cols = shape[0], shape[1]
-                curve_coords = np.arange(cols*rows).reshape((cols, rows))
-                if self.current_file.filemetadata['file_type'] == "jpk-force-map":
-                    curve_coords = np.asarray(
-                        [row[::(-1)**i] for i, row in enumerate(curve_coords)])
-                curve_coords = np.rot90(np.fliplr(curve_coords))
-            elif self.session.current_file.filemetadata['file_type'] in cts.nanoscope_file_extensions+cts.asylum_file_extensions:
-                img = self.session.current_file.piezoimg
-                img = np.rot90(np.fliplr(img))
+            
+            img, title = self._get_height_image()
+            if title is not None:
+                self.plotItem.setTitle(title)
 
-                shape = img.shape
-                rows, cols = shape[0], shape[1]
-                curve_coords = np.arange(cols*rows).reshape((cols, rows))
-                curve_coords = np.rot90(np.fliplr(curve_coords))
-            elif self.session.current_file.filemetadata['file_type'] in cts.jpk_h5_file:
-                #img = self.session.current_file.piezoimg
-                img = self.session.current_file.imagedata['CombinedHeightMeasured']
-                img = np.rot90(np.fliplr(img))
+            curve_coords = self.session.current_file.imagedata.get('coordinate')
 
-                self.plotItem.setTitle("test Height (μm)")
-                shape = img.shape
-                rows, cols = shape[0], shape[1]
-                curve_coords = self.session.current_file.imagedata['coordinate']
-                curve_coords = np.rot90(np.fliplr(curve_coords))
-                curve_coords = curve_coords
-
+            img = np.rot90(np.fliplr(img))
+            curve_coords = np.rot90(np.fliplr(curve_coords))
+            shape = img.shape
+            rows, cols = shape[0], shape[1]
+            
             self.correlogram.setImage(img)
-
             self.session.map_coords = curve_coords
+            self.plotItem.setXRange(0, cols)
+            self.plotItem.setYRange(0, rows)
         self.session.current_curve_index = 0
         self.ROI.setPos(0, 0)
         self.updatePlots()

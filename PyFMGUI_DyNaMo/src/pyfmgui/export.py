@@ -238,14 +238,9 @@ def export_results(results, dirname, file_prefix):
 
 def find_piezo_coord(nx,ny,file_path = ''):
     file_ext = file_path.split(os.extsep)[-1]
-
-    piezoimg_corrd = np.arange(nx*ny).reshape((ny, nx))
-    if file_ext =='jpk-force-map':
-        
-        piezoimg_corrd = np.asarray([row[::(-1)**i] for i, row in enumerate(piezoimg_corrd)])
-    elif file_ext == 'h5-jpk':
-        h5_uff = loadfile(file_path)
-        piezoimg_corrd = h5_uff.imagedata['coordinate']
+    #since file dependent scanning type
+    uff = loadfile(file_path)
+    piezoimg_corrd = uff.imagedata['coordinate']
     
     map_corrd_2D = np.rot90(np.fliplr(piezoimg_corrd))
     map_corrd_lin = map_corrd_2D.flatten()
