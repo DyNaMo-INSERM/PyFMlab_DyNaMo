@@ -52,18 +52,20 @@ def loadJPKh5curve(file_metadata, curve_index):
 
     h5file_top = h5file[top_group]
     segment_meta = file_metadata['segment_meta']
-
     if h5file_top.get('Segment0') is not None:
+        datasets = [f'Segment{i}' for i in segment_meta]
+    elif h5file_top.get('Segment00') is not None:
         datasets = [f'Segment{i}' for i in segment_meta]
 
     elif h5file_top.get('Extend') is not None:
         datasets = [segment_meta[i]['name'] for i in segment_meta]
+
     segments_h5 = [h5file_top[f"{d}/"] for d in datasets]
 
-    for seg_id in range(len(segments_h5)):
+    for seg_id in segment_meta.keys():
         segment_formated_data = {}
 
-        seg_group = segments_h5[seg_id]
+        seg_group = segments_h5[int(seg_id)]
 
         seg_type = segment_meta[seg_id]['name']
         if 'modulation' in seg_type:
@@ -132,7 +134,7 @@ def loadJPKh5curve(file_metadata, curve_index):
         else:
             print("[!] No valid vDeflection channel found!")
 
-        segment = Segment(file_id, seg_id, seg_type)
+        segment = Segment(file_id, int(seg_id), seg_type)
         segment.segment_formated_data = segment_formated_data
         # TODO do i need to store raw data?
         segment.segment_raw_data = segment_formated_data
@@ -151,9 +153,9 @@ def loadJPKh5curve(file_metadata, curve_index):
         segment.sampling_rate = segment.nb_point / \
             segment.segment_metadata["duration"]
         # TODO move this to parse
-        #segment_meta[seg_id]["ramp_size"] = float(segment_meta[seg_id]['settings.segment-settings.z-end'])-float(
+        # segment_meta[seg_id]["ramp_size"] = float(segment_meta[seg_id]['settings.segment-settings.z-end'])-float(
         #    segment_meta[seg_id]['settings.segment-settings.z-start'])
-        #segment.z_displacement = segment.segment_metadata["ramp_size"]
+        # segment.z_displacement = segment.segment_metadata["ramp_size"]
         if segment.segment_type == "Extend":
             force_curve.extend_segments.append(
                 (int(segment.segment_id), segment))
@@ -167,7 +169,7 @@ def loadJPKh5curve(file_metadata, curve_index):
         elif segment.segment_type == "Pause":
             force_curve.pause_segments.append(
                 (int(segment.segment_id), segment))
-        elif segment.segment_type =='Modulation':
+        elif segment.segment_type == 'Modulation':
             force_curve.modulation_segments.append(
                 (int(segment.segment_id), segment))
     h5file.close()

@@ -487,6 +487,10 @@ def create_modern_seg_header(props: dict[str, str],dataset_name:str,
 
     return info
 
+def make_segment_dict(n, value_fn=lambda i: None):
+    pad = len(str(n - 1))  # number of digits needed for the largest index
+    return {f"{i:0{pad}d}": value_fn(i) for i in range(n)}
+
 
 def get_modern_segment_infos_pyfm(
     header_properties,top_h5file
@@ -510,15 +514,18 @@ def get_unique_segment_infos(header_properties,top_h5file):
     )
 
     segment_count = int(header_info["segments.size"])
-    segment_infos = {}
-    for i in range(segment_count):
-        shared_seg_meta = get_shared_segment_meta(header_properties,i) 
+    segment_infos = make_segment_dict(segment_count)
+    
 
-        info = properties_section(header_info, f"segment.{i}")
+    for i in segment_infos.keys():
+        i_int  = int(i)
+        shared_seg_meta = get_shared_segment_meta(header_properties,i_int) 
+
+        info = properties_section(header_info, f"segment.{i_int}")
         identifier_name, fancy_name = _find_identifier_name(info)
         dataset_name = _find_data_set_for(
-            identifier_name, fancy_name, i, top_h5file)
-        seg_header = create_modern_seg_header(info,dataset_name, i)
+            identifier_name, fancy_name, i_int, top_h5file)
+        seg_header = create_modern_seg_header(info,dataset_name, i_int)
 
         segment_infos[i] = {**seg_header,**shared_seg_meta}
         
@@ -536,15 +543,16 @@ def get_duplicate_segment_infos(
     force_settings = get_attributes_matching(
         "multi-scan-series.header.force-settings", attrs
     )
-    count = int(force_settings["segments.size"])
+    segment_count = int(force_settings["segments.size"])
 
-    segment_infos = []
-    for i in range(count):
+    segment_infos = make_segment_dict(segment_count)
+    for i in segment_infos.keys():
+        i_int  = int(i)
         info = properties_section(
-            force_settings, f"segment.{i}")
-        name = f'segment{i}'
+            force_settings, f"segment.{i_int}")
+        name = f'segment{i_int}'
         segment_infos[i] = create_modern_seg_header(
-            info, name, i, ignore_fancy_name=True)
+            info, name, i_int, ignore_fancy_name=True)
 
     return segment_infos
 
